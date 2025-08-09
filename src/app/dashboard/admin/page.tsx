@@ -13,6 +13,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CafeteriaLayoutEditor } from "@/components/cafeteria-layout-editor";
+import { ChatInterface } from "@/components/chat-interface";
+import { getBookingInsights } from "@/ai/flows/admin-booking-insights";
 
 const peakHoursData = [
   { name: '8AM', value: 40 },
@@ -80,23 +82,17 @@ export default function AdminDashboardPage() {
         <section>
             <h2 className="text-xl font-semibold text-neutral-900 mb-4">Booking Statistics</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                    <CardContent className="p-6">
-                        <p className="text-sm font-medium text-neutral-600">Total Bookings</p>
-                        <p className="text-3xl font-bold text-neutral-900">0</p>
-                    </CardContent>
+                 <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+                    <p className="text-sm font-medium text-neutral-600">Total Bookings</p>
+                    <p className="text-3xl font-bold text-neutral-900">0</p>
                 </Card>
-                <Card>
-                    <CardContent className="p-6">
-                        <p className="text-sm font-medium text-neutral-600">Active Users</p>
-                        <p className="text-3xl font-bold text-neutral-900">0</p>
-                    </CardContent>
+                <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+                    <p className="text-sm font-medium text-neutral-600">Active Users</p>
+                    <p className="text-3xl font-bold text-neutral-900">0</p>
                 </Card>
-                <Card>
-                    <CardContent className="p-6">
-                        <p className="text-sm font-medium text-neutral-600">Avg. Booking Duration</p>
-                        <p className="text-3xl font-bold text-neutral-900">0</p>
-                    </CardContent>
+                <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+                    <p className="text-sm font-medium text-neutral-600">Avg. Booking Duration</p>
+                    <p className="text-3xl font-bold text-neutral-900">0</p>
                 </Card>
             </div>
         </section>

@@ -41,7 +41,10 @@ export default function UsersPage() {
     return (
         <div className="flex flex-col gap-8">
             <header className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-neutral-900">Users</h1>
+                <div>
+                    <h1 className="text-3xl font-bold text-neutral-900">Org Users</h1>
+                    <p className="text-neutral-600 mt-1">Manage users within your organization.</p>
+                </div>
                 <Button>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add User

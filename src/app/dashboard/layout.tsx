@@ -21,16 +21,14 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
   const router = useRouter();
 
   // This layout is now only for admin pages.
-  // We can remove user-specific checks here if any were added.
-  // Let's check if the current path is an admin path. 
-  // A simple way is to check if it's NOT a user path to be safe.
-  if (pathname.startsWith('/dashboard/user')) {
+  // We can check if the current path is an admin path. 
+  if (!pathname.startsWith('/dashboard/admin') && pathname !== '/dashboard/users' && pathname !== '/dashboard/approve-booking' && pathname !== '/dashboard/analytics' && pathname !== '/dashboard/settings') {
     return <>{children}</>;
   }
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard/admin", icon: Home },
-    { name: "Users", href: "/dashboard/users", icon: Users },
+    { name: "Org Users", href: "/dashboard/users", icon: Users },
     { name: "Approve Booking", href: "/dashboard/approve-booking", icon: CalendarCheck },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart2 },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
