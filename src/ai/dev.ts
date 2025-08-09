@@ -1,1 +1,5 @@
-// Flows will be imported for their side effects in this file.
+import { config } from 'dotenv';
+config();
+
+import '@/ai/flows/admin-booking-insights.ts';
+import '@/ai/flows/user-natural-language-booking.ts';
