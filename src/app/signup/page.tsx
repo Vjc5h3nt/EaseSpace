@@ -28,7 +28,6 @@ export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [verificationSent, setVerificationSent] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -63,19 +62,13 @@ export default function SignupPage() {
         role: "admin", // Assign admin role
       });
       
-      // 4. Send verification email
-      const actionCodeSettings = {
-        url: `${window.location.origin}/onboarding`,
-        handleCodeInApp: true,
-      };
-      await sendEmailVerification(user, actionCodeSettings);
-
+      // 4. Temporarily bypass verification and redirect to onboarding
       toast({
-        title: "Verification Email Sent",
-        description: "Please check your email to verify your account to complete registration.",
+        title: "Account Created!",
+        description: "You can now set up your workspace.",
       });
       
-      setVerificationSent(true);
+      router.push("/onboarding");
 
     } catch (error: any) {
       toast({
@@ -87,22 +80,6 @@ export default function SignupPage() {
       setIsLoading(false);
     }
   };
-
-  if (verificationSent) {
-    return (
-       <div className="flex items-center justify-center min-h-screen bg-background">
-        <Card className="mx-auto max-w-sm w-full text-center">
-            <CardHeader>
-                <CardTitle className="text-2xl">Verify Your Email</CardTitle>
-                <CardDescription>A verification link has been sent to your email address. Please check your inbox and click the link to activate your account and set up your workspace.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-                 <Button onClick={() => router.push('/login')}>Back to Login</Button>
-            </CardContent>
-        </Card>
-      </div>
-    )
-  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background py-12">
