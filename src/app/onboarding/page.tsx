@@ -1,34 +1,42 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Trash2, Building, Utensils } from "lucide-react";
-import type { Cafeteria, MeetingRoom } from "@/lib/types";
+import { PlusCircle, Trash2, Building, Utensils, Table as TableIcon } from "lucide-react";
+import type { Cafeteria, MeetingRoom, TableLayout } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db } from '@/lib/firebase';
 import { collection, addDoc, doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from 'firebase/auth';
+import { cn } from '@/lib/utils';
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { toast } = useToast();
+  
+  // State for onboarding data
   const [cafeterias, setCafeterias] = useState<Omit<Cafeteria, 'id' | 'orgId'>[]>([]);
   const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'orgId'>[]>([]);
   
+  // User and org state
   const [user, setUser] = useState(auth.currentUser);
   const [orgId, setOrgId] = useState<string | null>(null);
 
-  const [cafeteriaName, setCafeteriaName] = useState("");
-  const [cafeteriaCapacity, setCafeteriaCapacity] = useState("");
+  // Input fields for new cafeterias/rooms
+  const [newCafeteriaName, setNewCafeteriaName] = useState("");
+  const [newRoomName, setNewRoomName] = useState("");
+  const [newRoomCapacity, setNewRoomCapacity] = useState("");
+  const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
-  const [roomName, setRoomName] = useState("");
-  const [roomCapacity, setRoomCapacity] = useState("");
-  const [roomAmenities, setRoomAmenities] = useState("");
+  // State for cafeteria layout editor
+  const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [draggingTable, setDraggingTable] = useState<{ cafeteriaIndex: number; tableIndex: number; } | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -45,42 +53,85 @@ export default function OnboardingPage() {
     });
     return () => unsubscribe();
   }, [router]);
-
+  
+  // Cafeteria Management
   const addCafeteria = () => {
-    if (cafeteriaName && cafeteriaCapacity) {
-      setCafeterias([
-        ...cafeterias,
-        { name: cafeteriaName, capacity: parseInt(cafeteriaCapacity) },
-      ]);
-      setCafeteriaName("");
-      setCafeteriaCapacity("");
+    if (newCafeteriaName.trim()) {
+      setCafeterias([...cafeterias, { name: newCafeteriaName, layout: [] }]);
+      setNewCafeteriaName("");
+      if (selectedCafeteriaIndex === null) {
+        setSelectedCafeteriaIndex(cafeterias.length);
+      }
     }
   };
 
   const removeCafeteria = (index: number) => {
     setCafeterias(cafeterias.filter((_, i) => i !== index));
+    if (selectedCafeteriaIndex === index) {
+      setSelectedCafeteriaIndex(null);
+    } else if (selectedCafeteriaIndex && selectedCafeteriaIndex > index) {
+      setSelectedCafeteriaIndex(selectedCafeteriaIndex - 1);
+    }
   };
 
+  const addTableToCafeteria = (cafeteriaIndex: number) => {
+    const newTable: TableLayout = { id: `table-${Date.now()}`, x: 20, y: 20 };
+    const updatedCafeterias = [...cafeterias];
+    updatedCafeterias[cafeteriaIndex].layout.push(newTable);
+    setCafeterias(updatedCafeterias);
+  };
+  
+  // Meeting Room Management
   const addMeetingRoom = () => {
-    if (roomName && roomCapacity) {
+    if (newRoomName && newRoomCapacity) {
       setMeetingRooms([
         ...meetingRooms,
         {
-          name: roomName,
-          capacity: parseInt(roomCapacity),
-          amenities: roomAmenities.split(",").map((a) => a.trim()),
+          name: newRoomName,
+          capacity: parseInt(newRoomCapacity),
+          amenities: newRoomAmenities.split(",").map((a) => a.trim()),
         },
       ]);
-      setRoomName("");
-      setRoomCapacity("");
-      setRoomAmenities("");
+      setNewRoomName("");
+      setNewRoomCapacity("");
+      setNewRoomAmenities("");
     }
   };
   
   const removeMeetingRoom = (index: number) => {
     setMeetingRooms(meetingRooms.filter((_, i) => i !== index));
   };
+  
+  // Drag and Drop Handlers
+  const handleMouseDown = (e: React.MouseEvent, cafeteriaIndex: number, tableIndex: number) => {
+    setDraggingTable({ cafeteriaIndex, tableIndex });
+  };
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggingTable || !canvasRef.current) return;
+    
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    let x = e.clientX - canvasRect.left - 20; // 20 is half of table width
+    let y = e.clientY - canvasRect.top - 20; // 20 is half of table height
+
+    // boundary checks
+    x = Math.max(0, Math.min(x, canvasRect.width - 40));
+    y = Math.max(0, Math.min(y, canvasRect.height - 40));
+
+    const updatedCafeterias = [...cafeterias];
+    updatedCafeterias[draggingTable.cafeteriaIndex].layout[draggingTable.tableIndex] = {
+      ...updatedCafeterias[draggingTable.cafeteriaIndex].layout[draggingTable.tableIndex],
+      x,
+      y,
+    };
+    setCafeterias(updatedCafeterias);
+  };
+  
+  const handleMouseUp = () => {
+    setDraggingTable(null);
+  };
+  
+  // Onboarding Finish
   const finishOnboarding = async () => {
     if (!orgId) {
         toast({ title: "Error", description: "Organization ID not found. Please log in again.", variant: 'destructive' });
@@ -90,7 +141,7 @@ export default function OnboardingPage() {
     try {
       const cafeteriasCollectionRef = collection(db, "cafeterias");
       for (const cafe of cafeterias) {
-        await addDoc(cafeteriasCollectionRef, { ...cafe, orgId });
+        await addDoc(cafeteriasCollectionRef, { ...cafe, orgId, capacity: cafe.layout.length * 4 });
       }
 
       const meetingRoomsCollectionRef = collection(db, "meetingRooms");
@@ -113,8 +164,8 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-2xl">
+    <div className="flex items-center justify-center min-h-screen bg-background p-4" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+      <Card className="w-full max-w-4xl">
         <CardHeader>
           <CardTitle className="text-2xl font-headline">Workspace Setup</CardTitle>
           <CardDescription>Configure your cafeterias and meeting rooms for your organization.</CardDescription>
@@ -129,50 +180,85 @@ export default function OnboardingPage() {
                 <Building className="mr-2 h-4 w-4" /> Meeting Rooms
               </TabsTrigger>
             </TabsList>
+            
             <TabsContent value="cafeterias" className="mt-4">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-                  <div className="space-y-2 sm:col-span-2 grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="cafeteria-name">Cafeteria Name</Label>
-                      <Input id="cafeteria-name" value={cafeteriaName} onChange={(e) => setCafeteriaName(e.target.value)} placeholder="Main Cafeteria" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cafeteria-capacity">Capacity</Label>
-                      <Input id="cafeteria-capacity" type="number" value={cafeteriaCapacity} onChange={(e) => setCafeteriaCapacity(e.target.value)} placeholder="100" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Cafeteria List and Add Form */}
+                <div className="md:col-span-1 space-y-4">
+                  <div>
+                    <Label htmlFor="cafeteria-name">New Cafeteria Name</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input id="cafeteria-name" value={newCafeteriaName} onChange={(e) => setNewCafeteriaName(e.target.value)} placeholder="e.g., Main Canteen" />
+                      <Button onClick={addCafeteria} size="icon"><PlusCircle className="h-4 w-4" /></Button>
                     </div>
                   </div>
-                  <Button onClick={addCafeteria} className="w-full sm:w-auto">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add
-                  </Button>
+                  <div className="space-y-2">
+                    <Label>Your Cafeterias</Label>
+                    {cafeterias.length === 0 && <p className="text-xs text-muted-foreground">No cafeterias added yet.</p>}
+                    {cafeterias.map((cafe, index) => (
+                      <div key={index} className={cn("flex items-center justify-between rounded-md border p-2 cursor-pointer", selectedCafeteriaIndex === index ? 'bg-accent text-accent-foreground' : 'hover:bg-muted')} >
+                        <span className="flex-grow" onClick={() => setSelectedCafeteriaIndex(index)}>{cafe.name}</span>
+                        <Button variant="ghost" size="icon" onClick={() => removeCafeteria(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {cafeterias.map((cafe, index) => (
-                    <div key={index} className="flex items-center justify-between rounded-md border p-3">
-                      <p>{cafe.name} (Capacity: {cafe.capacity})</p>
-                      <Button variant="ghost" size="icon" onClick={() => removeCafeteria(index)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+
+                {/* Layout Editor */}
+                <div className="md:col-span-2">
+                   {selectedCafeteriaIndex !== null && cafeterias[selectedCafeteriaIndex] ? (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="font-medium text-lg">{cafeterias[selectedCafeteriaIndex].name} Layout</h3>
+                            <Button onClick={() => addTableToCafeteria(selectedCafeteriaIndex)}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Table
+                            </Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Drag and drop tables to arrange the layout. Each table has 4 seats.
+                        </p>
+                        <div ref={canvasRef} className="relative w-full h-96 rounded-md border bg-slate-50 cursor-grab" onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'} onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}>
+                             {cafeterias[selectedCafeteriaIndex].layout.map((table, tableIndex) => (
+                                <div
+                                key={table.id}
+                                onMouseDown={(e) => handleMouseDown(e, selectedCafeteriaIndex, tableIndex)}
+                                className="absolute w-10 h-10 flex items-center justify-center rounded-md bg-primary text-primary-foreground cursor-pointer select-none"
+                                style={{ left: table.x, top: table.y, userSelect: 'none' }}
+                                >
+                                    <TableIcon className="w-6 h-6"/>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="text-right font-medium">
+                            Total Capacity: {cafeterias[selectedCafeteriaIndex].layout.length * 4} seats
+                        </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground bg-slate-50 rounded-md border">
+                        <p>Select or create a cafeteria to edit its layout.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>
+
             <TabsContent value="meeting-rooms" className="mt-4">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:col-span-2">
                         <div className="space-y-2">
                             <Label htmlFor="room-name">Room Name</Label>
-                            <Input id="room-name" value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Conference Room A" />
+                            <Input id="room-name" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} placeholder="Conference Room A" />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="room-capacity">Capacity</Label>
-                            <Input id="room-capacity" type="number" value={roomCapacity} onChange={(e) => setRoomCapacity(e.target.value)} placeholder="12" />
+                            <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(e.target.value)} placeholder="12" />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="room-amenities">Amenities (comma-separated)</Label>
-                            <Input id="room-amenities" value={roomAmenities} onChange={(e) => setRoomAmenities(e.target.value)} placeholder="TV, Whiteboard" />
+                            <Input id="room-amenities" value={newRoomAmenities} onChange={(e) => setNewRoomAmenities(e.target.value)} placeholder="TV, Whiteboard" />
                         </div>
                     </div>
                     <Button onClick={addMeetingRoom} className="w-full sm:w-auto">

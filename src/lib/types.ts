@@ -13,11 +13,18 @@ export interface User {
   employeeId?: string;
 }
 
+export interface TableLayout {
+    id: string;
+    x: number;
+    y: number;
+}
+
 export interface Cafeteria {
     id: string;
     orgId: string;
     name: string;
     capacity: number;
+    layout: TableLayout[];
 }
 
 export interface MeetingRoom {
@@ -41,6 +48,8 @@ export interface Booking {
     startTime: string; // HH:mm
     endTime: string; // HH:mm
     status: 'Confirmed' | 'Pending' | 'Cancelled' | 'Requires Approval';
+    tableId?: string; // For cafeteria bookings
+    seatId?: number; // For cafeteria bookings (1-4)
 }
 
 export interface Analytics {
