@@ -22,12 +22,10 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
         setLayout(cafeteria.layout || []);
     }, [cafeteria]);
     
-    // This was the source of the infinite loop.
-    // It is now fixed by wrapping the onLayoutChange call in a useEffect
-    // that only triggers when the layout state actually changes.
     useEffect(() => {
         onLayoutChange(layout);
-    }, [layout, onLayoutChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [layout]);
 
 
     const addTable = () => {
