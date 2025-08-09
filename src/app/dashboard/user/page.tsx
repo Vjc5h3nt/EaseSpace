@@ -87,7 +87,7 @@ export default function UserDashboardPage() {
               <Building className="h-5 w-5" />
               <span>Book a Space</span>
             </Link>
-            <Link href="#" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-neutral-600 hover:bg-neutral-100">
+            <Link href="/dashboard/user/profile" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-neutral-600 hover:bg-neutral-100">
               <UserIcon className="h-5 w-5" />
               <span className="text-sm font-medium">Profile</span>
             </Link>
