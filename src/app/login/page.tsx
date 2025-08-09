@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -42,6 +41,7 @@ export default function UserLoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({ title: "Success", description: "Logged in successfully." });
 
+      // Check the user's role and redirect accordingly
       const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
       if (userDoc.exists() && userDoc.data().role === 'admin') {
         router.push("/dashboard/admin");
@@ -52,7 +52,7 @@ export default function UserLoginPage() {
     } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: error.message,
+        description: "Please check your email and password.",
         variant: "destructive",
       });
     } finally {
@@ -114,10 +114,13 @@ export default function UserLoginPage() {
                         </div>
                         <Button type="submit" className="w-full rounded-lg px-5 py-3 text-center text-sm font-semibold transition-colors bg-blue-600 text-white hover:bg-blue-700" disabled={isLoading}>
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Login with Email
+                            Login
                         </Button>
                          <p className="text-sm font-light text-center text-gray-500">
                             Don’t have an account yet? <Link href="/signup/user" className="font-medium text-blue-600 hover:underline">Sign up</Link>
+                        </p>
+                         <p className="text-sm font-light text-center text-gray-500">
+                            Setting up a new workspace? <Link href="/signup" className="font-medium text-blue-600 hover:underline">Admin Onboarding</Link>
                         </p>
                     </form>
                 </Form>

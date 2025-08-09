@@ -27,12 +27,15 @@ export default function UserDashboardPage() {
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data() as User;
           setUser(userData);
+          // Ensure org_id is present before fetching spaces
           if (userData.org_id) {
             fetchSpaces(userData.org_id);
           } else {
              setLoading(false);
           }
         } else {
+          // If no user doc, they might be an unverified admin or something went wrong
+          console.log("No such user document!");
           router.push('/login');
         }
       } else {
@@ -43,17 +46,23 @@ export default function UserDashboardPage() {
   }, [router]);
 
   const fetchSpaces = async (org_id: string) => {
+    // This function will only be called if org_id is valid.
     setLoading(true);
-    // Fetch Cafeterias
-    const cafeteriasQuery = query(collection(db, "cafeterias"), where("org_id", "==", org_id));
-    const cafeteriasSnapshot = await getDocs(cafeteriasQuery);
-    setCafeterias(cafeteriasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafeteria)));
-    
-    // Fetch Meeting Rooms
-    const meetingRoomsQuery = query(collection(db, "meetingRooms"), where("org_id", "==", org_id));
-    const meetingRoomsSnapshot = await getDocs(meetingRoomsQuery);
-    setMeetingRooms(meetingRoomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom)));
-    setLoading(false);
+    try {
+        // Fetch Cafeterias
+        const cafeteriasQuery = query(collection(db, "cafeterias"), where("org_id", "==", org_id));
+        const cafeteriasSnapshot = await getDocs(cafeteriasQuery);
+        setCafeterias(cafeteriasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafeteria)));
+        
+        // Fetch Meeting Rooms
+        const meetingRoomsQuery = query(collection(db, "meetingRooms"), where("org_id", "==", org_id));
+        const meetingRoomsSnapshot = await getDocs(meetingRoomsQuery);
+        setMeetingRooms(meetingRoomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom)));
+    } catch (error) {
+        console.error("Error fetching spaces:", error);
+    } finally {
+        setLoading(false);
+    }
   };
   
   const handleLogout = async () => {
@@ -100,7 +109,7 @@ export default function UserDashboardPage() {
         </header>
 
         {loading ? (
-            <p>Loading spaces...</p>
+            <div className="text-center p-8">Loading spaces...</div>
         ) : (
             <div className="grid gap-8">
                 <section>

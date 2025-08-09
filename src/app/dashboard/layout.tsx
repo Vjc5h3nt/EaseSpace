@@ -16,9 +16,17 @@ import { ChatbotPopup } from "@/components/chatbot-popup";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  // This layout is now only for admin pages.
+  // We can remove user-specific checks here if any were added.
+  // Let's check if the current path is an admin path. 
+  // A simple way is to check if it's NOT a user path to be safe.
+  if (pathname.startsWith('/dashboard/user')) {
+    return <>{children}</>;
+  }
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard/admin", icon: Home },
