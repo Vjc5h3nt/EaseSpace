@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, Bot, BarChart } from "lucide-react";
+import { Briefcase, Bot, BarChart, ArrowRight } from "lucide-react";
 import { Logo } from "@/components/logo";
 
 export default function Home() {
@@ -36,10 +36,25 @@ export default function Home() {
                     Manage meeting rooms and cafeteria seats with ease. Let our AI handle the scheduling, so you can focus on what matters.
                   </p>
                 </div>
-                <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Button asChild size="lg">
-                    <Link href="/signup">Get Started</Link>
-                  </Button>
+                <div className="flex flex-col gap-4 min-[400px]:flex-row">
+                    <Card className="hover:shadow-lg transition-shadow">
+                        <CardContent className="p-6 flex flex-col items-start gap-4">
+                            <h3 className="text-lg font-semibold">Are you a user?</h3>
+                            <p className="text-sm text-muted-foreground">Login to book your space and manage your schedule.</p>
+                            <Button asChild className="mt-auto">
+                                <Link href="/login">User Login <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                    <Card className="hover:shadow-lg transition-shadow">
+                        <CardContent className="p-6 flex flex-col items-start gap-4">
+                           <h3 className="text-lg font-semibold">Are you an Admin?</h3>
+                           <p className="text-sm text-muted-foreground">Create and manage your organization's workspace.</p>
+                            <Button asChild variant="outline" className="mt-auto">
+                                <Link href="/signup">Admin Onboarding <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
                 </div>
               </div>
               <Image
