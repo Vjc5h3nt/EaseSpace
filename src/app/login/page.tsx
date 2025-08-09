@@ -117,7 +117,7 @@ export default function UserLoginPage() {
                             Login with Email
                         </Button>
                          <p className="text-sm font-light text-center text-gray-500">
-                            Don’t have an account yet? <Link href="/signup" className="font-medium text-blue-600 hover:underline">Sign up</Link>
+                            Don’t have an account yet? <Link href="/signup/user" className="font-medium text-blue-600 hover:underline">Sign up</Link>
                         </p>
                     </form>
                 </Form>
