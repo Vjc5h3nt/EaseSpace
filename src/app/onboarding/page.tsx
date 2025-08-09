@@ -137,13 +137,14 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleLayoutChange = useCallback((layout: TableLayout[]) => {
+  const handleLayoutChange = useCallback((newLayout: TableLayout[]) => {
       if (selectedCafeteriaIndex === null) return;
       setCafeterias(currentCafes => {
           const updatedCafes = [...currentCafes];
-          if (updatedCafes[selectedCafeteriaIndex]) {
-              updatedCafes[selectedCafeteriaIndex].layout = layout;
-              updatedCafes[selectedCafeteriaIndex].capacity = layout.length * 4;
+          const cafeToUpdate = updatedCafes[selectedCafeteriaIndex];
+          if (cafeToUpdate) {
+              cafeToUpdate.layout = newLayout;
+              cafeToUpdate.capacity = newLayout.length * 4;
           }
           return updatedCafes;
       });
@@ -260,7 +261,7 @@ export default function OnboardingPage() {
         </CardContent>
       </Card>
       
-      <Dialog open={isLayoutEditorOpen} onOpenChange={setSelectedCafeteriaIndex.bind(null, null)}>
+      <Dialog open={isLayoutEditorOpen} onOpenChange={(isOpen) => !isOpen && setSelectedCafeteriaIndex(null)}>
         <DialogContent className="max-w-4xl">
             {selectedCafeteria && (
                 <>

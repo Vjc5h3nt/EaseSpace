@@ -105,3 +105,4 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
         </div>
     );
 }
+
