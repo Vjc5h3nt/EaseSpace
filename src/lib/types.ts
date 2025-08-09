@@ -49,7 +49,7 @@ export interface Booking {
     endTime: string; // HH:mm
     status: 'Confirmed' | 'Pending' | 'Cancelled' | 'Requires Approval';
     tableId?: string; // For cafeteria bookings
-    seatId?: number; // For cafeteria bookings (1-4)
+    seatCount?: number; // For cafeteria bookings
 }
 
 export interface Analytics {
