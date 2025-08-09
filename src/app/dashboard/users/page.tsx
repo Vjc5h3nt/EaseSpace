@@ -21,7 +21,7 @@ export default function UsersPage() {
                 // Fetch the admin's orgId
                 const adminUserDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
                 if (!adminUserDoc.empty) {
-                    const adminOrgId = adminUserDoc.docs[0].data().orgId;
+                    const adminOrgId = adminUserDoc.docs[0].data().org_id;
                     setOrgId(adminOrgId);
                     fetchUsers(adminOrgId);
                 }
@@ -32,7 +32,7 @@ export default function UsersPage() {
 
     const fetchUsers = async (orgId: string) => {
         if (!orgId) return;
-        const usersQuery = query(collection(db, 'users'), where('orgId', '==', orgId));
+        const usersQuery = query(collection(db, 'users'), where('org_id', '==', orgId));
         const querySnapshot = await getDocs(usersQuery);
         const fetchedUsers = querySnapshot.docs.map(doc => doc.data() as User);
         setUsers(fetchedUsers);

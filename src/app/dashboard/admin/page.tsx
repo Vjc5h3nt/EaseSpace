@@ -47,7 +47,7 @@ export default function AdminDashboardPage() {
         const userDocRef = doc(db, "users", user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
-          const userOrgId = userDocSnap.data().orgId;
+          const userOrgId = userDocSnap.data().org_id;
           setOrgId(userOrgId);
           fetchSpaces(userOrgId);
         }
@@ -60,13 +60,13 @@ export default function AdminDashboardPage() {
     if (!orgId) return;
     
     // Fetch Cafeterias
-    const cafeteriasQuery = query(collection(db, "cafeterias"), where("orgId", "==", orgId));
+    const cafeteriasQuery = query(collection(db, "cafeterias"), where("org_id", "==", orgId));
     const cafeteriasSnapshot = await getDocs(cafeteriasQuery);
     const fetchedCafeterias = cafeteriasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafeteria));
     setCafeterias(fetchedCafeterias);
 
     // Fetch Meeting Rooms
-    const meetingRoomsQuery = query(collection(db, "meetingRooms"), where("orgId", "==", orgId));
+    const meetingRoomsQuery = query(collection(db, "meetingRooms"), where("org_id", "==", orgId));
     const meetingRoomsSnapshot = await getDocs(meetingRoomsQuery);
     const fetchedMeetingRooms = meetingRoomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom));
     setMeetingRooms(fetchedMeetingRooms);

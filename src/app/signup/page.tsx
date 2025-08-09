@@ -57,7 +57,7 @@ export default function SignupPage() {
       // 3. Create the user document in Firestore, linking to the organization
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
-        orgId: orgId,
+        org_id: orgId,
         fullName: values.adminFullName,
         email: values.adminEmail,
         role: "admin", // Assign admin role

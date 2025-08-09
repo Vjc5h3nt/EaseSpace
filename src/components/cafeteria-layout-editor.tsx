@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils';
 import { DialogClose } from './ui/dialog';
 
 interface CafeteriaLayoutEditorProps {
-    cafeteria: Cafeteria;
-    onSave?: () => void;
+    cafeteria: Omit<Cafeteria, 'org_id'> & { org_id?: string };
+    onSave: (layout: TableLayout[]) => void;
 }
 
 export function CafeteriaLayoutEditor({ cafeteria, onSave }: CafeteriaLayoutEditorProps) {
@@ -67,6 +67,11 @@ export function CafeteriaLayoutEditor({ cafeteria, onSave }: CafeteriaLayoutEdit
     };
 
     const handleSaveLayout = async () => {
+        // If it's a temp ID from onboarding, just pass the layout up
+        if(cafeteria.id.startsWith('temp-')){
+            onSave(layout);
+            return;
+        }
         try {
             const cafeteriaRef = doc(db, "cafeterias", cafeteria.id);
             await updateDoc(cafeteriaRef, {
@@ -77,9 +82,7 @@ export function CafeteriaLayoutEditor({ cafeteria, onSave }: CafeteriaLayoutEdit
                 title: "Layout Saved!",
                 description: `The layout for ${cafeteria.name} has been updated.`,
             });
-            if (onSave) {
-                onSave();
-            }
+            onSave(layout);
         } catch (error: any) {
             toast({
                 title: "Error Saving Layout",

@@ -5,7 +5,7 @@ export interface Organization {
 
 export interface User {
   uid: string;
-  orgId: string;
+  org_id: string;
   email: string;
   fullName: string;
   role: 'admin' | 'user';
@@ -21,7 +21,7 @@ export interface TableLayout {
 
 export interface Cafeteria {
     id: string;
-    orgId: string;
+    org_id: string;
     name: string;
     capacity: number;
     layout: TableLayout[];
@@ -29,7 +29,7 @@ export interface Cafeteria {
 
 export interface MeetingRoom {
     id: string;
-    orgId: string;
+    org_id: string;
     name: string;
     capacity: number;
     amenities: string[];
@@ -40,7 +40,7 @@ export interface MeetingRoom {
 
 export interface Booking {
     id: string;
-    orgId: string;
+    org_id: string;
     userId: string;
     spaceId: string;
     spaceType: 'cafeteria' | 'meetingRoom';
@@ -54,7 +54,7 @@ export interface Booking {
 
 export interface Analytics {
     id: string;
-    orgId: string;
+    org_id: string;
     date: string; // YYYY-MM-DD
     utilization: {
         cafeteria: number; // percentage

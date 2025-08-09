@@ -22,8 +22,8 @@ export default function OnboardingPage() {
   const { toast } = useToast();
   
   // State for onboarding data
-  const [cafeterias, setCafeterias] = useState<(Omit<Cafeteria, 'id' | 'orgId'> & {id?: string})[]>([]);
-  const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'orgId'>[]>([]);
+  const [cafeterias, setCafeterias] = useState<(Omit<Cafeteria, 'id' | 'org_id'> & {id?: string})[]>([]);
+  const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'org_id'>[]>([]);
   
   // User and org state
   const [user, setUser] = useState(auth.currentUser);
@@ -54,7 +54,7 @@ export default function OnboardingPage() {
         const userDocRef = doc(db, "users", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
-          setOrgId(userDocSnap.data().orgId);
+          setOrgId(userDocSnap.data().org_id);
         }
       } else {
         router.push('/login');
@@ -112,12 +112,12 @@ export default function OnboardingPage() {
       const cafeteriasCollectionRef = collection(db, "cafeterias");
       for (const cafe of cafeterias) {
         const { id, ...cafeData } = cafe;
-        await addDoc(cafeteriasCollectionRef, { ...cafeData, orgId, capacity: cafe.layout.length * 4 });
+        await addDoc(cafeteriasCollectionRef, { ...cafeData, org_id: orgId, capacity: cafe.layout.length * 4 });
       }
 
       const meetingRoomsCollectionRef = collection(db, "meetingRooms");
       for (const room of meetingRooms) {
-        await addDoc(meetingRoomsCollectionRef, { ...room, orgId });
+        await addDoc(meetingRoomsCollectionRef, { ...room, org_id: orgId });
       }
 
       toast({
@@ -134,7 +134,7 @@ export default function OnboardingPage() {
     }
   };
   
-  const handleTempSave = async (index: number, updatedCafeteria: Omit<Cafeteria, 'orgId'>) => {
+  const handleTempSave = async (index: number, updatedCafeteria: Omit<Cafeteria, 'org_id'>) => {
     const updatedCafeterias = [...cafeterias];
     updatedCafeterias[index] = updatedCafeteria;
     setCafeterias(updatedCafeterias);
@@ -191,7 +191,7 @@ export default function OnboardingPage() {
                      <div className="space-y-4">
                        <h3 className="font-medium text-lg">{selectedCafeteria.name} Layout</h3>
                         <CafeteriaLayoutEditor 
-                          cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, orgId: ''}} 
+                          cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
                           onSave={(updatedLayout) => {
                               const updatedCafes = [...cafeterias];
                               updatedCafes[selectedCafeteriaIndex].layout = updatedLayout;
