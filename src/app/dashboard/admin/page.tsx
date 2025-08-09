@@ -9,23 +9,9 @@ import { ChatInterface } from "@/components/chat-interface";
 import { getBookingInsights } from "@/ai/flows/admin-booking-insights";
 import type { Booking } from "@/lib/types";
 
-const chartData = [
-  { name: 'Mon', cafeteria: 40, meetingRoom: 24 },
-  { name: 'Tue', cafeteria: 30, meetingRoom: 13 },
-  { name: 'Wed', cafeteria: 20, meetingRoom: 98 },
-  { name: 'Thu', cafeteria: 27, meetingRoom: 39 },
-  { name: 'Fri', cafeteria: 18, meetingRoom: 48 },
-  { name: 'Sat', cafeteria: 23, meetingRoom: 38 },
-  { name: 'Sun', cafeteria: 34, meetingRoom: 43 },
-];
-
-const bookings: Booking[] = [
-  { id: '1', user: 'Alice Johnson', space: 'Meeting Room A', date: '2024-05-20', time: '10:00 AM', status: 'Confirmed' },
-  { id: '2', user: 'Bob Williams', space: 'Cafeteria Seat 12', date: '2024-05-20', time: '12:30 PM', status: 'Confirmed' },
-  { id: '3', user: 'Charlie Brown', space: 'Meeting Room B', date: '2024-05-21', time: '02:00 PM', status: 'Pending' },
-  { id: '4', user: 'Diana Prince', space: 'Cafeteria Seat 5', date: '2024-05-21', time: '01:00 PM', status: 'Confirmed' },
-  { id: '5', user: 'Ethan Hunt', space: 'Meeting Room A', date: '2024-05-22', time: '11:00 AM', status: 'Cancelled' },
-];
+// Static data removed to make the component dynamic
+const chartData: any[] = [];
+const bookings: Booking[] = [];
 
 export default function AdminDashboardPage() {
   return (
@@ -37,8 +23,8 @@ export default function AdminDashboardPage() {
             <BookOpenCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,234</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No data available</p>
           </CardContent>
         </Card>
         <Card>
@@ -47,8 +33,8 @@ export default function AdminDashboardPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">73.5%</div>
-            <p className="text-xs text-muted-foreground">+5.2% from last week</p>
+            <div className="text-2xl font-bold">0%</div>
+            <p className="text-xs text-muted-foreground">No data available</p>
           </CardContent>
         </Card>
         <Card>
@@ -57,8 +43,8 @@ export default function AdminDashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+235</div>
-            <p className="text-xs text-muted-foreground">+180.1% from last month</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No data available</p>
           </CardContent>
         </Card>
       </div>
@@ -79,18 +65,26 @@ export default function AdminDashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bookings.map((booking) => (
-                  <TableRow key={booking.id}>
-                    <TableCell className="font-medium">{booking.user}</TableCell>
-                    <TableCell>{booking.space}</TableCell>
-                    <TableCell>{booking.date} at {booking.time}</TableCell>
-                    <TableCell>
-                      <Badge variant={booking.status === 'Confirmed' ? 'default' : booking.status === 'Cancelled' ? 'destructive' : 'secondary'} className={booking.status === 'Confirmed' ? 'bg-accent text-accent-foreground' : ''}>
-                        {booking.status}
-                      </Badge>
+                {bookings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      No recent bookings.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  bookings.map((booking) => (
+                    <TableRow key={booking.id}>
+                      <TableCell className="font-medium">{booking.userId}</TableCell>
+                      <TableCell>{booking.spaceId}</TableCell>
+                      <TableCell>{booking.date} at {booking.startTime}</TableCell>
+                      <TableCell>
+                        <Badge variant={booking.status === 'Confirmed' ? 'default' : booking.status === 'Cancelled' ? 'destructive' : 'secondary'} className={booking.status === 'Confirmed' ? 'bg-accent text-accent-foreground' : ''}>
+                          {booking.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -101,6 +95,11 @@ export default function AdminDashboardPage() {
             <CardDescription>Cafeteria vs. Meeting Room bookings.</CardDescription>
           </CardHeader>
           <CardContent>
+             {chartData.length === 0 ? (
+              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                No data to display.
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -116,6 +115,7 @@ export default function AdminDashboardPage() {
                 <Bar dataKey="meetingRoom" fill="hsl(var(--accent))" name="Meeting Rooms" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

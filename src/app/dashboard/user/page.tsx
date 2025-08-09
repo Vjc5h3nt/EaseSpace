@@ -8,10 +8,8 @@ import { Calendar, Clock } from "lucide-react";
 import type { Booking } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
-const upcomingBookings: Booking[] = [
-    { id: '1', user: 'Current User', space: 'Meeting Room A', date: '2024-05-24', time: '03:00 PM', status: 'Confirmed' },
-    { id: '2', user: 'Current User', space: 'Cafeteria Seat 8', date: '2024-05-25', time: '12:00 PM', status: 'Confirmed' },
-];
+// Static data removed to make the component dynamic
+const upcomingBookings: Booking[] = [];
 
 export default function UserDashboardPage() {
     const { toast } = useToast();
@@ -64,7 +62,7 @@ export default function UserDashboardPage() {
                 upcomingBookings.map(booking => (
                     <div key={booking.id} className="p-4 border rounded-lg bg-card">
                         <div className="flex justify-between items-start">
-                            <h4 className="font-semibold">{booking.space}</h4>
+                            <h4 className="font-semibold">{booking.spaceId}</h4>
                             <Badge className="bg-accent text-accent-foreground">{booking.status}</Badge>
                         </div>
                         <div className="text-sm text-muted-foreground mt-2 space-y-1">
@@ -74,7 +72,7 @@ export default function UserDashboardPage() {
                             </div>
                             <div className="flex items-center">
                                 <Clock className="w-4 h-4 mr-2" />
-                                <span>{booking.time}</span>
+                                <span>{booking.startTime}</span>
                             </div>
                         </div>
                     </div>

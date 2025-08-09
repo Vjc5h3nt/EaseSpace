@@ -15,7 +15,7 @@ import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { doc, setDoc, addDoc, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Home } from "lucide-react";
 
 const formSchema = z.object({
   adminFullName: z.string().min(1, { message: "Full name is required" }),
@@ -103,8 +103,13 @@ export default function SignupPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background py-12">
-      <Card className="mx-auto max-w-md w-full">
-        <CardHeader className="text-center">
+      <Card className="mx-auto max-w-md w-full relative">
+         <Link href="/" passHref>
+            <Button variant="ghost" size="icon" className="absolute top-4 left-4">
+              <Home className="h-4 w-4" />
+            </Button>
+          </Link>
+        <CardHeader className="text-center pt-12">
           <Link href="/" className="inline-block mb-4">
             <Logo className="h-8 w-8 mx-auto text-primary" />
           </Link>

@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, sendSignInLinkToEmail } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Home } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -92,8 +92,13 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="mx-auto max-w-sm w-full">
-        <CardHeader className="text-center">
+      <Card className="mx-auto max-w-sm w-full relative">
+         <Link href="/" passHref>
+            <Button variant="ghost" size="icon" className="absolute top-4 left-4">
+              <Home className="h-4 w-4" />
+            </Button>
+          </Link>
+        <CardHeader className="text-center pt-12">
           <Link href="/" className="inline-block mb-4">
             <Logo className="h-8 w-8 mx-auto text-primary" />
           </Link>
