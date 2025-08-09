@@ -18,10 +18,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
 
 const formSchema = z.object({
+  organizationName: z.string().min(1, { message: "Organization name is required" }),
   adminFullName: z.string().min(1, { message: "Full name is required" }),
   adminEmail: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  organizationName: z.string().min(1, { message: "Organization name is required" }),
 });
 
 export default function SignupPage() {
@@ -33,10 +33,10 @@ export default function SignupPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      organizationName: "",
       adminFullName: "",
       adminEmail: "",
       password: "",
-      organizationName: "",
     },
   });
 
@@ -64,11 +64,15 @@ export default function SignupPage() {
       });
       
       // 4. Send verification email
-      await sendEmailVerification(user);
+      const actionCodeSettings = {
+        url: `${window.location.origin}/onboarding`,
+        handleCodeInApp: true,
+      };
+      await sendEmailVerification(user, actionCodeSettings);
 
       toast({
         title: "Verification Email Sent",
-        description: "Please check your email to verify your account and complete registration.",
+        description: "Please check your email to verify your account to complete registration.",
       });
       
       setVerificationSent(true);
@@ -90,11 +94,10 @@ export default function SignupPage() {
         <Card className="mx-auto max-w-sm w-full text-center">
             <CardHeader>
                 <CardTitle className="text-2xl">Verify Your Email</CardTitle>
-                <CardDescription>A verification link has been sent to your email address. Please check your inbox and click the link to activate your account. You can then proceed to the onboarding.</CardDescription>
+                <CardDescription>A verification link has been sent to your email address. Please check your inbox and click the link to activate your account and set up your workspace.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-                <Button onClick={() => router.push('/onboarding')}>Go to Onboarding</Button>
-                <Button variant="link" onClick={() => router.push('/login')}>Back to Login</Button>
+                 <Button onClick={() => router.push('/login')}>Back to Login</Button>
             </CardContent>
         </Card>
       </div>

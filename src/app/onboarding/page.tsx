@@ -42,6 +42,16 @@ export default function OnboardingPage() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        // Ensure email is verified before allowing onboarding
+        if (!currentUser.emailVerified) {
+            toast({
+                title: "Email not verified",
+                description: "Please verify your email before setting up your organization.",
+                variant: "destructive"
+            });
+            router.push('/login');
+            return;
+        }
         const userDocRef = doc(db, "users", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
@@ -52,14 +62,15 @@ export default function OnboardingPage() {
       }
     });
     return () => unsubscribe();
-  }, [router]);
+  }, [router, toast]);
   
   // Cafeteria Management
   const addCafeteria = () => {
     if (newCafeteriaName.trim()) {
       setCafeterias([...cafeterias, { name: newCafeteriaName, layout: [] }]);
       setNewCafeteriaName("");
-      if (selectedCafeteriaIndex === null) {
+      // Select the newly added cafeteria for editing
+      if (selectedCafeteriaIndex === null || selectedCafeteriaIndex === cafeterias.length) {
         setSelectedCafeteriaIndex(cafeterias.length);
       }
     }
@@ -74,10 +85,11 @@ export default function OnboardingPage() {
     }
   };
 
-  const addTableToCafeteria = (cafeteriaIndex: number) => {
+  const addTableToCafeteria = () => {
+    if (selectedCafeteriaIndex === null) return;
     const newTable: TableLayout = { id: `table-${Date.now()}`, x: 20, y: 20 };
     const updatedCafeterias = [...cafeterias];
-    updatedCafeterias[cafeteriaIndex].layout.push(newTable);
+    updatedCafeterias[selectedCafeteriaIndex].layout.push(newTable);
     setCafeterias(updatedCafeterias);
   };
   
@@ -103,12 +115,13 @@ export default function OnboardingPage() {
   };
   
   // Drag and Drop Handlers
-  const handleMouseDown = (e: React.MouseEvent, cafeteriaIndex: number, tableIndex: number) => {
-    setDraggingTable({ cafeteriaIndex, tableIndex });
+  const handleMouseDown = (e: React.MouseEvent, tableIndex: number) => {
+    if (selectedCafeteriaIndex === null) return;
+    setDraggingTable({ cafeteriaIndex: selectedCafeteriaIndex, tableIndex });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingTable || !canvasRef.current) return;
+    if (!draggingTable || !canvasRef.current || selectedCafeteriaIndex === null) return;
     
     const canvasRect = canvasRef.current.getBoundingClientRect();
     let x = e.clientX - canvasRect.left - 20; // 20 is half of table width
@@ -119,8 +132,8 @@ export default function OnboardingPage() {
     y = Math.max(0, Math.min(y, canvasRect.height - 40));
 
     const updatedCafeterias = [...cafeterias];
-    updatedCafeterias[draggingTable.cafeteriaIndex].layout[draggingTable.tableIndex] = {
-      ...updatedCafeterias[draggingTable.cafeteriaIndex].layout[draggingTable.tableIndex],
+    updatedCafeterias[selectedCafeteriaIndex].layout[draggingTable.tableIndex] = {
+      ...updatedCafeterias[selectedCafeteriaIndex].layout[draggingTable.tableIndex],
       x,
       y,
     };
@@ -195,14 +208,16 @@ export default function OnboardingPage() {
                   <div className="space-y-2">
                     <Label>Your Cafeterias</Label>
                     {cafeterias.length === 0 && <p className="text-xs text-muted-foreground">No cafeterias added yet.</p>}
-                    {cafeterias.map((cafe, index) => (
-                      <div key={index} className={cn("flex items-center justify-between rounded-md border p-2 cursor-pointer", selectedCafeteriaIndex === index ? 'bg-accent text-accent-foreground' : 'hover:bg-muted')} >
-                        <span className="flex-grow" onClick={() => setSelectedCafeteriaIndex(index)}>{cafe.name}</span>
-                        <Button variant="ghost" size="icon" onClick={() => removeCafeteria(index)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                      {cafeterias.map((cafe, index) => (
+                        <div key={index} className={cn("flex items-center justify-between rounded-md border p-2 cursor-pointer", selectedCafeteriaIndex === index ? 'bg-accent text-accent-foreground' : 'hover:bg-muted')} >
+                          <span className="flex-grow" onClick={() => setSelectedCafeteriaIndex(index)}>{cafe.name}</span>
+                          <Button variant="ghost" size="icon" onClick={() => removeCafeteria(index)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -212,18 +227,18 @@ export default function OnboardingPage() {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <h3 className="font-medium text-lg">{cafeterias[selectedCafeteriaIndex].name} Layout</h3>
-                            <Button onClick={() => addTableToCafeteria(selectedCafeteriaIndex)}>
+                            <Button onClick={addTableToCafeteria}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> Add Table
                             </Button>
                         </div>
                         <p className="text-sm text-muted-foreground">
                             Drag and drop tables to arrange the layout. Each table has 4 seats.
                         </p>
-                        <div ref={canvasRef} className="relative w-full h-96 rounded-md border bg-slate-50 cursor-grab" onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'} onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}>
+                        <div ref={canvasRef} className="relative w-full h-96 rounded-md border bg-slate-50 cursor-grab" onMouseDown={(e) => {if(draggingTable) e.currentTarget.style.cursor = 'grabbing'}} onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}>
                              {cafeterias[selectedCafeteriaIndex].layout.map((table, tableIndex) => (
                                 <div
                                 key={table.id}
-                                onMouseDown={(e) => handleMouseDown(e, selectedCafeteriaIndex, tableIndex)}
+                                onMouseDown={(e) => handleMouseDown(e, tableIndex)}
                                 className="absolute w-10 h-10 flex items-center justify-center rounded-md bg-primary text-primary-foreground cursor-pointer select-none"
                                 style={{ left: table.x, top: table.y, userSelect: 'none' }}
                                 >
@@ -236,8 +251,10 @@ export default function OnboardingPage() {
                         </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground bg-slate-50 rounded-md border">
-                        <p>Select or create a cafeteria to edit its layout.</p>
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-slate-50 rounded-md border text-center p-4">
+                        <Utensils className="w-12 h-12 mb-4 text-gray-400" />
+                        <p className="font-semibold">Select or create a cafeteria</p>
+                        <p className="text-sm">Once a cafeteria is selected, you can edit its table layout here.</p>
                     </div>
                   )}
                 </div>
@@ -246,30 +263,29 @@ export default function OnboardingPage() {
 
             <TabsContent value="meeting-rooms" className="mt-4">
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:col-span-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="room-name">Room Name</Label>
-                            <Input id="room-name" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} placeholder="Conference Room A" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="room-capacity">Capacity</Label>
-                            <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(e.target.value)} placeholder="12" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="room-amenities">Amenities (comma-separated)</Label>
-                            <Input id="room-amenities" value={newRoomAmenities} onChange={(e) => setNewRoomAmenities(e.target.value)} placeholder="TV, Whiteboard" />
-                        </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-4 items-end">
+                    <div className="space-y-1">
+                        <Label htmlFor="room-name">Room Name</Label>
+                        <Input id="room-name" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} placeholder="Conference Room A" />
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="room-capacity">Capacity</Label>
+                        <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(e.target.value)} placeholder="12" />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2 md:col-span-1">
+                        <Label htmlFor="room-amenities">Amenities (comma-separated)</Label>
+                        <Input id="room-amenities" value={newRoomAmenities} onChange={(e) => setNewRoomAmenities(e.target.value)} placeholder="TV, Whiteboard" />
                     </div>
                     <Button onClick={addMeetingRoom} className="w-full sm:w-auto">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Room
                     </Button>
                 </div>
-                 <div className="space-y-2">
+                 <div className="space-y-2 border rounded-md p-2 max-h-80 overflow-y-auto">
+                  {meetingRooms.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">No meeting rooms added yet.</p>}
                   {meetingRooms.map((room, index) => (
-                    <div key={index} className="flex items-center justify-between rounded-md border p-3">
+                    <div key={index} className="flex items-center justify-between rounded-md border bg-card p-3">
                       <div>
-                        <p>{room.name} (Capacity: {room.capacity})</p>
+                        <p className="font-medium">{room.name} (Capacity: {room.capacity})</p>
                         <p className="text-sm text-muted-foreground">{room.amenities.join(', ')}</p>
                       </div>
                       <Button variant="ghost" size="icon" onClick={() => removeMeetingRoom(index)}>
@@ -282,7 +298,7 @@ export default function OnboardingPage() {
             </TabsContent>
           </Tabs>
           <div className="mt-6 flex justify-end">
-            <Button size="lg" onClick={finishOnboarding} disabled={!orgId}>Finish Onboarding</Button>
+            <Button size="lg" onClick={finishOnboarding} disabled={!orgId || (cafeterias.length === 0 && meetingRooms.length === 0)}>Finish Onboarding</Button>
           </div>
         </CardContent>
       </Card>

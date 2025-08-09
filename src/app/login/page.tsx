@@ -12,10 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { auth } from "@/lib/firebase";
-import { signInWithEmailAndPassword, sendSignInLinkToEmail } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import { signInWithEmailAndPassword, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
+import React from "react";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -27,6 +29,36 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false);
+
+   React.useEffect(() => {
+    // Handle the sign-in with email link
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      let email = window.localStorage.getItem('emailForSignIn');
+      if (!email) {
+        email = window.prompt('Please provide your email for confirmation');
+      }
+      if (email) {
+          setIsLoading(true);
+          signInWithEmailLink(auth, email, window.location.href)
+            .then(async (result) => {
+              window.localStorage.removeItem('emailForSignIn');
+              toast({ title: "Success", description: "Logged in successfully." });
+              
+              const userDoc = await getDoc(doc(db, "users", result.user.uid));
+              if (userDoc.exists() && userDoc.data().role === 'admin') {
+                router.push("/dashboard/admin");
+              } else {
+                router.push("/dashboard/user"); 
+              }
+            })
+            .catch((error) => {
+              toast({ title: "Login Failed", description: error.message, variant: "destructive" });
+            })
+            .finally(() => setIsLoading(false));
+      }
+    }
+  }, [router, toast]);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,9 +75,16 @@ export default function LoginPage() {
     }
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({ title: "Success", description: "Logged in successfully." });
-      router.push("/dashboard/admin");
+
+      const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+      if (userDoc.exists() && userDoc.data().role === 'admin') {
+        router.push("/dashboard/admin");
+      } else {
+        router.push("/dashboard/user"); 
+      }
+
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -68,7 +107,7 @@ export default function LoginPage() {
     }
     setIsMagicLinkLoading(true);
     const actionCodeSettings = {
-        url: `${window.location.origin}/dashboard/admin`,
+        url: `${window.location.origin}${window.location.pathname}`,
         handleCodeInApp: true,
     };
     try {
@@ -150,7 +189,7 @@ export default function LoginPage() {
                 </span>
             </div>
           </div>
-           <Button variant="outline" className="w-full" onClick={handleMagicLink} disabled={isMagicLinkLoading}>
+           <Button variant="outline" className="w-full" onClick={handleMagicLink} disabled={isMagicLinkLoading || isLoading}>
                 {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Send Magic Link
             </Button>
