@@ -62,7 +62,7 @@ export default function OnboardingPage() {
       const newCafe = { name: newCafeteriaName, layout: [], capacity: 0 };
       setCafeterias([...cafeterias, newCafe]);
       setNewCafeteriaName("");
-      setSelectedCafeteriaIndex(cafeterias.length);
+      setSelectedCafeteriaIndex(cafeterias.length); // This will be the index of the newly added cafe
       setIsLayoutEditorOpen(true);
     }
   };
@@ -139,16 +139,17 @@ export default function OnboardingPage() {
     }
   };
   
-  const handleLayoutChange = useCallback((index: number, newLayout: TableLayout[]) => {
-    setCafeterias(currentCafes => {
+  const handleLayoutChange = useCallback((layout: TableLayout[]) => {
+      setCafeterias(currentCafes => {
+        if(selectedCafeteriaIndex === null) return currentCafes;
         const updatedCafes = [...currentCafes];
-        if (updatedCafes[index]) {
-            updatedCafes[index].layout = newLayout;
-            updatedCafes[index].capacity = newLayout.length * 4;
+        if (updatedCafes[selectedCafeteriaIndex]) {
+            updatedCafes[selectedCafeteriaIndex].layout = layout;
+            updatedCafes[selectedCafeteriaIndex].capacity = layout.length * 4;
         }
         return updatedCafes;
     });
-  }, []);
+  }, [selectedCafeteriaIndex]);
 
   const handleSaveLayout = () => {
     toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})
@@ -216,26 +217,6 @@ export default function OnboardingPage() {
                     </div>
                   </div>
                 </div>
-
-                {selectedCafeteria && selectedCafeteriaIndex !== null && (
-                    <Dialog open={isLayoutEditorOpen} onOpenChange={setIsLayoutEditorOpen}>
-                        <DialogContent className="max-w-4xl">
-                            <DialogHeader>
-                                <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
-                            </DialogHeader>
-                            <CafeteriaLayoutEditor 
-                                cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
-                                onLayoutChange={(newLayout) => handleLayoutChange(selectedCafeteriaIndex, newLayout)}
-                            />
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                   <Button variant="outline">Cancel</Button>
-                                </DialogClose>
-                                <Button onClick={handleSaveLayout}>Save Layout</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                )}
             </TabsContent>
 
             <TabsContent value="meeting-rooms" className="mt-4">
@@ -279,6 +260,24 @@ export default function OnboardingPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isLayoutEditorOpen} onOpenChange={setIsLayoutEditorOpen}>
+        {selectedCafeteria && selectedCafeteriaIndex !== null && (
+          <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                  <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
+              </DialogHeader>
+              <CafeteriaLayoutEditor 
+                  cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
+                  onLayoutChange={handleLayoutChange}
+              />
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsLayoutEditorOpen(false)}>Cancel</Button>
+                  <Button onClick={handleSaveLayout}>Save Layout</Button>
+              </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }
