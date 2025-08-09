@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,12 +10,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Trash2, Building, Utensils } from "lucide-react";
 import type { Cafeteria, MeetingRoom } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { auth, db } from '@/lib/firebase';
+import { collection, addDoc, doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
-  const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
+  const [cafeterias, setCafeterias] = useState<Omit<Cafeteria, 'id' | 'orgId'>[]>([]);
+  const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'orgId'>[]>([]);
+  
+  const [user, setUser] = useState(auth.currentUser);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   const [cafeteriaName, setCafeteriaName] = useState("");
   const [cafeteriaCapacity, setCafeteriaCapacity] = useState("");
@@ -24,15 +30,35 @@ export default function OnboardingPage() {
   const [roomCapacity, setRoomCapacity] = useState("");
   const [roomAmenities, setRoomAmenities] = useState("");
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          setOrgId(userDocSnap.data().orgId);
+        }
+      } else {
+        router.push('/login');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
   const addCafeteria = () => {
     if (cafeteriaName && cafeteriaCapacity) {
       setCafeterias([
         ...cafeterias,
-        { id: Date.now().toString(), name: cafeteriaName, capacity: parseInt(cafeteriaCapacity) },
+        { name: cafeteriaName, capacity: parseInt(cafeteriaCapacity) },
       ]);
       setCafeteriaName("");
       setCafeteriaCapacity("");
     }
+  };
+
+  const removeCafeteria = (index: number) => {
+    setCafeterias(cafeterias.filter((_, i) => i !== index));
   };
 
   const addMeetingRoom = () => {
@@ -40,7 +66,6 @@ export default function OnboardingPage() {
       setMeetingRooms([
         ...meetingRooms,
         {
-          id: Date.now().toString(),
           name: roomName,
           capacity: parseInt(roomCapacity),
           amenities: roomAmenities.split(",").map((a) => a.trim()),
@@ -51,13 +76,40 @@ export default function OnboardingPage() {
       setRoomAmenities("");
     }
   };
+  
+  const removeMeetingRoom = (index: number) => {
+    setMeetingRooms(meetingRooms.filter((_, i) => i !== index));
+  };
 
-  const finishOnboarding = () => {
-    toast({
-      title: "Onboarding Complete!",
-      description: "Your workspace has been configured.",
-    });
-    router.push("/dashboard/admin");
+  const finishOnboarding = async () => {
+    if (!orgId) {
+        toast({ title: "Error", description: "Organization ID not found. Please log in again.", variant: 'destructive' });
+        return;
+    }
+
+    try {
+      const cafeteriasCollectionRef = collection(db, "cafeterias");
+      for (const cafe of cafeterias) {
+        await addDoc(cafeteriasCollectionRef, { ...cafe, orgId });
+      }
+
+      const meetingRoomsCollectionRef = collection(db, "meetingRooms");
+      for (const room of meetingRooms) {
+        await addDoc(meetingRoomsCollectionRef, { ...room, orgId });
+      }
+
+      toast({
+        title: "Onboarding Complete!",
+        description: "Your workspace has been configured.",
+      });
+      router.push("/dashboard/admin");
+    } catch (error: any) {
+        toast({
+            title: "Error finishing onboarding",
+            description: error.message,
+            variant: "destructive"
+        })
+    }
   };
 
   return (
@@ -65,7 +117,7 @@ export default function OnboardingPage() {
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle className="text-2xl font-headline">Workspace Setup</CardTitle>
-          <CardDescription>Configure your cafeterias and meeting rooms.</CardDescription>
+          <CardDescription>Configure your cafeterias and meeting rooms for your organization.</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="cafeterias" className="w-full">
@@ -95,10 +147,10 @@ export default function OnboardingPage() {
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  {cafeterias.map((cafe) => (
-                    <div key={cafe.id} className="flex items-center justify-between rounded-md border p-3">
+                  {cafeterias.map((cafe, index) => (
+                    <div key={index} className="flex items-center justify-between rounded-md border p-3">
                       <p>{cafe.name} (Capacity: {cafe.capacity})</p>
-                      <Button variant="ghost" size="icon" onClick={() => setCafeterias(cafeterias.filter(c => c.id !== cafe.id))}>
+                      <Button variant="ghost" size="icon" onClick={() => removeCafeteria(index)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -119,7 +171,7 @@ export default function OnboardingPage() {
                             <Input id="room-capacity" type="number" value={roomCapacity} onChange={(e) => setRoomCapacity(e.target.value)} placeholder="12" />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="room-amenities">Amenities</Label>
+                            <Label htmlFor="room-amenities">Amenities (comma-separated)</Label>
                             <Input id="room-amenities" value={roomAmenities} onChange={(e) => setRoomAmenities(e.target.value)} placeholder="TV, Whiteboard" />
                         </div>
                     </div>
@@ -128,13 +180,13 @@ export default function OnboardingPage() {
                     </Button>
                 </div>
                  <div className="space-y-2">
-                  {meetingRooms.map((room) => (
-                    <div key={room.id} className="flex items-center justify-between rounded-md border p-3">
+                  {meetingRooms.map((room, index) => (
+                    <div key={index} className="flex items-center justify-between rounded-md border p-3">
                       <div>
                         <p>{room.name} (Capacity: {room.capacity})</p>
                         <p className="text-sm text-muted-foreground">{room.amenities.join(', ')}</p>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => setMeetingRooms(meetingRooms.filter(r => r.id !== room.id))}>
+                      <Button variant="ghost" size="icon" onClick={() => removeMeetingRoom(index)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -144,7 +196,7 @@ export default function OnboardingPage() {
             </TabsContent>
           </Tabs>
           <div className="mt-6 flex justify-end">
-            <Button size="lg" onClick={finishOnboarding}>Finish Onboarding</Button>
+            <Button size="lg" onClick={finishOnboarding} disabled={!orgId}>Finish Onboarding</Button>
           </div>
         </CardContent>
       </Card>

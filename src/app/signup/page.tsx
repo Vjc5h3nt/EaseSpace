@@ -9,23 +9,19 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, addDoc, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
-  fullName: z.string().min(1, { message: "Full name is required" }),
-  email: z.string().email({ message: "Please enter a valid email." }),
+  adminFullName: z.string().min(1, { message: "Full name is required" }),
+  adminEmail: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  mobileNumber: z.string().min(10, { message: "Please enter a valid mobile number." }),
   organizationName: z.string().min(1, { message: "Organization name is required" }),
-  location: z.string().min(1, { message: "Location is required" }),
-  employeeId: z.string().min(1, { message: "Employee ID is required" }),
 });
 
 export default function SignupPage() {
@@ -34,36 +30,40 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
 
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      fullName: "",
-      email: "",
+      adminFullName: "",
+      adminEmail: "",
       password: "",
-      mobileNumber: "",
       organizationName: "",
-      location: "",
-      employeeId: "",
     },
   });
 
   const handleSignup = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      // 1. Create the organization
+      const orgRef = await addDoc(collection(db, "organizations"), {
+        name: values.organizationName,
+        createdAt: new Date(),
+      });
+      const orgId = orgRef.id;
+
+      // 2. Create the admin user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, values.adminEmail, values.password);
       const user = userCredential.user;
 
+      // 3. Create the user document in Firestore, linking to the organization
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
-        fullName: values.fullName,
-        email: values.email,
-        mobileNumber: values.mobileNumber,
-        organizationName: values.organizationName,
-        location: values.location,
-        employeeId: values.employeeId,
+        orgId: orgId,
+        fullName: values.adminFullName,
+        email: values.adminEmail,
+        role: "admin", // Assign admin role
       });
       
+      // 4. Send verification email
       await sendEmailVerification(user);
 
       toast({
@@ -90,10 +90,11 @@ export default function SignupPage() {
         <Card className="mx-auto max-w-sm w-full text-center">
             <CardHeader>
                 <CardTitle className="text-2xl">Verify Your Email</CardTitle>
-                <CardDescription>A verification link has been sent to your email address. Please check your inbox and click the link to activate your account.</CardDescription>
+                <CardDescription>A verification link has been sent to your email address. Please check your inbox and click the link to activate your account. You can then proceed to the onboarding.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <Button onClick={() => router.push('/login')}>Back to Login</Button>
+            <CardContent className="flex flex-col gap-4">
+                <Button onClick={() => router.push('/onboarding')}>Go to Onboarding</Button>
+                <Button variant="link" onClick={() => router.push('/login')}>Back to Login</Button>
             </CardContent>
         </Card>
       </div>
@@ -107,18 +108,29 @@ export default function SignupPage() {
           <Link href="/" className="inline-block mb-4">
             <Logo className="h-8 w-8 mx-auto text-primary" />
           </Link>
-          <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
-          <CardDescription>Enter your information to get started</CardDescription>
+          <CardTitle className="text-2xl font-headline">Create Your Organization</CardTitle>
+          <CardDescription>Get started by creating an admin account for your organization.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSignup)} className="grid gap-4">
               <FormField
                 control={form.control}
-                name="fullName"
+                name="organizationName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Name</FormLabel>
+                    <FormLabel>Organization Name</FormLabel>
+                    <FormControl><Input placeholder="Acme Inc." {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="adminFullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your Full Name</FormLabel>
                     <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -126,11 +138,11 @@ export default function SignupPage() {
               />
               <FormField
                 control={form.control}
-                name="email"
+                name="adminEmail"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl><Input placeholder="m@example.com" {...field} /></FormControl>
+                    <FormLabel>Your Email</FormLabel>
+                    <FormControl><Input placeholder="admin@example.com" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -146,56 +158,10 @@ export default function SignupPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="mobileNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mobile Number</FormLabel>
-                    <FormControl><Input placeholder="+1234567890" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <FormField
-                control={form.control}
-                name="organizationName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Organization Name</FormLabel>
-                    <FormControl><Input placeholder="Acme Inc." {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                 <FormField
-                    control={form.control}
-                    name="location"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Location</FormLabel>
-                        <FormControl><Input placeholder="New York" {...field} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="employeeId"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Employee ID</FormLabel>
-                        <FormControl><Input placeholder="ACME-123" {...field} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-              </div>
-
+              
               <Button type="submit" className="w-full mt-2" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create account
+                Create Account
               </Button>
             </form>
           </Form>

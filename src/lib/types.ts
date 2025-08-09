@@ -1,31 +1,55 @@
-export interface Booking {
+export interface Organization {
     id: string;
-    user: string;
-    space: string;
-    date: string;
-    time: string;
-    status: 'Confirmed' | 'Pending' | 'Cancelled';
+    name: string;
+}
+
+export interface User {
+  uid: string;
+  orgId: string;
+  email: string;
+  fullName: string;
+  role: 'admin' | 'user';
+  mobileNumber?: string;
+  employeeId?: string;
 }
 
 export interface Cafeteria {
     id: string;
+    orgId: string;
     name: string;
     capacity: number;
 }
 
 export interface MeetingRoom {
     id: string;
+    orgId: string;
     name: string;
     capacity: number;
     amenities: string[];
+    floor?: number;
+    location?: string; // e.g. "Tower B"
+    imageUrl?: string;
 }
 
-export interface User {
-  uid: string;
-  email: string;
-  fullName: string;
-  organizationName: string;
-  location: string;
-  employeeId: string;
-  mobileNumber: string;
+export interface Booking {
+    id: string;
+    orgId: string;
+    userId: string;
+    spaceId: string;
+    spaceType: 'cafeteria' | 'meetingRoom';
+    date: string; // YYYY-MM-DD
+    startTime: string; // HH:mm
+    endTime: string; // HH:mm
+    status: 'Confirmed' | 'Pending' | 'Cancelled' | 'Requires Approval';
+}
+
+export interface Analytics {
+    id: string;
+    orgId: string;
+    date: string; // YYYY-MM-DD
+    utilization: {
+        cafeteria: number; // percentage
+        meetingRoom: number; // percentage
+    };
+    noShowCount: number;
 }
