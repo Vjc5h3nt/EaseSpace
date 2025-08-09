@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Trash2, Building, Utensils, AlertTriangle } from "lucide-react";
-import type { Cafeteria, MeetingRoom } from "@/lib/types";
+import type { Cafeteria, MeetingRoom, TableLayout } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db } from '@/lib/firebase';
 import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
@@ -134,10 +134,16 @@ export default function OnboardingPage() {
     }
   };
   
-  const handleTempSave = async (index: number, updatedCafeteria: Omit<Cafeteria, 'org_id'>) => {
-    const updatedCafeterias = [...cafeterias];
-    updatedCafeterias[index] = updatedCafeteria;
-    setCafeterias(updatedCafeterias);
+  const handleLayoutChange = (index: number, newLayout: TableLayout[]) => {
+      const updatedCafes = [...cafeterias];
+      updatedCafes[index].layout = newLayout;
+      updatedCafes[index].capacity = newLayout.length * 4;
+      setCafeterias(updatedCafes);
+  };
+
+  const handleSaveLayout = () => {
+    toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})
+    // Here you could add logic to close a dialog if this was in one.
   }
 
   const selectedCafeteria = selectedCafeteriaIndex !== null ? cafeterias[selectedCafeteriaIndex] : null;
@@ -201,14 +207,12 @@ export default function OnboardingPage() {
                        <h3 className="font-medium text-lg">{selectedCafeteria.name} Layout</h3>
                         <CafeteriaLayoutEditor 
                           cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
-                          onSave={(updatedLayout) => {
-                              const updatedCafes = [...cafeterias];
-                              updatedCafes[selectedCafeteriaIndex].layout = updatedLayout;
-                              updatedCafes[selectedCafeteriaIndex].capacity = updatedLayout.length * 4;
-                              setCafeterias(updatedCafes);
-                              toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})
-                          }}
+                          onLayoutChange={(newLayout) => handleLayoutChange(selectedCafeteriaIndex, newLayout)}
+                          onSave={handleSaveLayout}
                         />
+                        <div className="flex justify-end">
+                            <Button onClick={handleSaveLayout}>Save Layout</Button>
+                        </div>
                      </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-slate-50 rounded-md border text-center p-4">

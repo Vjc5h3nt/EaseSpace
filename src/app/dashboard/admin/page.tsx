@@ -6,15 +6,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Pencil, Utensils, Building } from "lucide-react";
-import type { Booking, Cafeteria, MeetingRoom } from "@/lib/types";
+import type { Booking, Cafeteria, MeetingRoom, TableLayout } from "@/lib/types";
 import { auth, db } from "@/lib/firebase";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CafeteriaLayoutEditor } from "@/components/cafeteria-layout-editor";
-import { ChatInterface } from "@/components/chat-interface";
-import { getBookingInsights } from "@/ai/flows/admin-booking-insights";
+import { useToast } from "@/hooks/use-toast";
+
 
 const peakHoursData = [
   { name: '8AM', value: 40 },
@@ -39,9 +39,15 @@ const dailyUsageData = [
 const recentBookings: (Booking & {userName: string, spaceName: string, seat: string})[] = [];
 
 export default function AdminDashboardPage() {
+  const { toast } = useToast();
   const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
   const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
+
+  // State for layout editor
+  const [selectedCafeteria, setSelectedCafeteria] = useState<Cafeteria | null>(null);
+  const [currentLayout, setCurrentLayout] = useState<TableLayout[]>([]);
+
 
    useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -72,6 +78,35 @@ export default function AdminDashboardPage() {
     const meetingRoomsSnapshot = await getDocs(meetingRoomsQuery);
     const fetchedMeetingRooms = meetingRoomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom));
     setMeetingRooms(fetchedMeetingRooms);
+  };
+
+  const handleEditLayout = (cafe: Cafeteria) => {
+    setSelectedCafeteria(cafe);
+    setCurrentLayout(cafe.layout || []);
+  };
+
+  const handleSaveLayout = async () => {
+    if (!selectedCafeteria) return;
+
+    try {
+        const cafeteriaRef = doc(db, "cafeterias", selectedCafeteria.id);
+        await updateDoc(cafeteriaRef, {
+            layout: currentLayout,
+            capacity: currentLayout.length * 4
+        });
+        toast({
+            title: "Layout Saved!",
+            description: `The layout for ${selectedCafeteria.name} has been updated.`,
+        });
+        fetchSpaces(orgId!); // Refresh the spaces to show updated data
+        setSelectedCafeteria(null); // Close dialog implicitly via state change
+    } catch (error: any) {
+        toast({
+            title: "Error Saving Layout",
+            description: error.message,
+            variant: "destructive",
+        });
+    }
   };
   
   return (
@@ -111,19 +146,28 @@ export default function AdminDashboardPage() {
                             <p className="font-semibold">{cafe.name}</p>
                             <p className="text-sm text-neutral-600">Capacity: {cafe.capacity}</p>
                             </div>
-                            <Dialog>
+                            <Dialog onOpenChange={(isOpen) => !isOpen && setSelectedCafeteria(null)}>
                                 <DialogTrigger asChild>
-                                <Button variant="outline" size="sm"><Pencil className="mr-2 h-3 w-3" /> Edit Layout</Button>
+                                <Button variant="outline" size="sm" onClick={() => handleEditLayout(cafe)}><Pencil className="mr-2 h-3 w-3" /> Edit Layout</Button>
                                 </DialogTrigger>
+                                {selectedCafeteria && selectedCafeteria.id === cafe.id && (
                                 <DialogContent className="max-w-4xl">
                                 <DialogHeader>
                                     <DialogTitle>Edit Layout for {cafe.name}</DialogTitle>
                                 </DialogHeader>
                                 <CafeteriaLayoutEditor 
-                                    cafeteria={cafe} 
-                                    onSave={() => fetchSpaces(orgId!)}
+                                    cafeteria={selectedCafeteria}
+                                    onLayoutChange={setCurrentLayout} 
+                                    onSave={handleSaveLayout}
                                 />
+                                <DialogFooter>
+                                    <DialogClose asChild>
+                                       <Button variant="outline">Cancel</Button>
+                                    </DialogClose>
+                                    <Button onClick={handleSaveLayout}>Save Layout</Button>
+                                </DialogFooter>
                                 </DialogContent>
+                                )}
                             </Dialog>
                         </div>
                         )) : <p className="text-sm text-neutral-600 text-center py-4">No cafeterias found.</p>}

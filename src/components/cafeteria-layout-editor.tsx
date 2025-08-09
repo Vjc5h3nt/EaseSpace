@@ -8,14 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from "firebase/firestore";
 import { cn } from '@/lib/utils';
-import { DialogClose } from './ui/dialog';
 
 interface CafeteriaLayoutEditorProps {
     cafeteria: Omit<Cafeteria, 'org_id'> & { org_id?: string };
-    onSave: (layout: TableLayout[]) => void;
+    onLayoutChange: (layout: TableLayout[]) => void;
+    onSave: () => void;
 }
 
-export function CafeteriaLayoutEditor({ cafeteria, onSave }: CafeteriaLayoutEditorProps) {
+export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange, onSave }: CafeteriaLayoutEditorProps) {
     const { toast } = useToast();
     const [layout, setLayout] = useState<TableLayout[]>(cafeteria.layout || []);
     const [draggingTable, setDraggingTable] = useState<{ tableIndex: number, offsetX: number, offsetY: number } | null>(null);
@@ -24,6 +24,11 @@ export function CafeteriaLayoutEditor({ cafeteria, onSave }: CafeteriaLayoutEdit
     useEffect(() => {
         setLayout(cafeteria.layout || []);
     }, [cafeteria]);
+    
+    useEffect(() => {
+        onLayoutChange(layout);
+    }, [layout, onLayoutChange]);
+
 
     const addTable = () => {
         const newTable: TableLayout = { id: `table-${Date.now()}`, x: 20, y: 20 };
@@ -65,32 +70,6 @@ export function CafeteriaLayoutEditor({ cafeteria, onSave }: CafeteriaLayoutEdit
         }
         setDraggingTable(null);
     };
-
-    const handleSaveLayout = async () => {
-        // If it's a temp ID from onboarding, just pass the layout up
-        if(cafeteria.id.startsWith('temp-')){
-            onSave(layout);
-            return;
-        }
-        try {
-            const cafeteriaRef = doc(db, "cafeterias", cafeteria.id);
-            await updateDoc(cafeteriaRef, {
-                layout: layout,
-                capacity: layout.length * 4
-            });
-            toast({
-                title: "Layout Saved!",
-                description: `The layout for ${cafeteria.name} has been updated.`,
-            });
-            onSave(layout);
-        } catch (error: any) {
-            toast({
-                title: "Error Saving Layout",
-                description: error.message,
-                variant: "destructive",
-            });
-        }
-    };
     
     return (
         <div className="space-y-4" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
@@ -124,14 +103,6 @@ export function CafeteriaLayoutEditor({ cafeteria, onSave }: CafeteriaLayoutEdit
                         </button>
                     </div>
                 ))}
-            </div>
-             <div className="flex justify-end gap-2">
-                <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                </DialogClose>
-                <DialogClose asChild>
-                    <Button onClick={handleSaveLayout}>Save Layout</Button>
-                </DialogClose>
             </div>
         </div>
     );
