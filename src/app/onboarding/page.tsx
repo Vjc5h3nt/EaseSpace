@@ -7,20 +7,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Trash2, Building, Utensils, Table as TableIcon } from "lucide-react";
-import type { Cafeteria, MeetingRoom, TableLayout } from "@/lib/types";
+import { PlusCircle, Trash2, Building, Utensils } from "lucide-react";
+import type { Cafeteria, MeetingRoom } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db } from '@/lib/firebase';
-import { collection, addDoc, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from 'firebase/auth';
 import { cn } from '@/lib/utils';
+import { CafeteriaLayoutEditor } from '@/components/cafeteria-layout-editor';
+
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { toast } = useToast();
   
   // State for onboarding data
-  const [cafeterias, setCafeterias] = useState<Omit<Cafeteria, 'id' | 'orgId'>[]>([]);
+  const [cafeterias, setCafeterias] = useState<(Omit<Cafeteria, 'id' | 'orgId'> & {id?: string})[]>([]);
   const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'orgId'>[]>([]);
   
   // User and org state
@@ -33,11 +35,8 @@ export default function OnboardingPage() {
   const [newRoomCapacity, setNewRoomCapacity] = useState("");
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
-  // State for cafeteria layout editor
   const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [draggingTable, setDraggingTable] = useState<{ cafeteriaIndex: number; tableIndex: number; } | null>(null);
-
+  
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -64,15 +63,12 @@ export default function OnboardingPage() {
     return () => unsubscribe();
   }, [router, toast]);
   
-  // Cafeteria Management
   const addCafeteria = () => {
     if (newCafeteriaName.trim()) {
-      setCafeterias([...cafeterias, { name: newCafeteriaName, layout: [] }]);
+      const newCafe = { name: newCafeteriaName, layout: [], capacity: 0 };
+      setCafeterias([...cafeterias, newCafe]);
       setNewCafeteriaName("");
-      // Select the newly added cafeteria for editing
-      if (selectedCafeteriaIndex === null || selectedCafeteriaIndex === cafeterias.length) {
-        setSelectedCafeteriaIndex(cafeterias.length);
-      }
+      setSelectedCafeteriaIndex(cafeterias.length);
     }
   };
 
@@ -83,14 +79,6 @@ export default function OnboardingPage() {
     } else if (selectedCafeteriaIndex && selectedCafeteriaIndex > index) {
       setSelectedCafeteriaIndex(selectedCafeteriaIndex - 1);
     }
-  };
-
-  const addTableToCafeteria = () => {
-    if (selectedCafeteriaIndex === null) return;
-    const newTable: TableLayout = { id: `table-${Date.now()}`, x: 20, y: 20 };
-    const updatedCafeterias = [...cafeterias];
-    updatedCafeterias[selectedCafeteriaIndex].layout.push(newTable);
-    setCafeterias(updatedCafeterias);
   };
   
   // Meeting Room Management
@@ -114,37 +102,6 @@ export default function OnboardingPage() {
     setMeetingRooms(meetingRooms.filter((_, i) => i !== index));
   };
   
-  // Drag and Drop Handlers
-  const handleMouseDown = (e: React.MouseEvent, tableIndex: number) => {
-    if (selectedCafeteriaIndex === null) return;
-    setDraggingTable({ cafeteriaIndex: selectedCafeteriaIndex, tableIndex });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingTable || !canvasRef.current || selectedCafeteriaIndex === null) return;
-    
-    const canvasRect = canvasRef.current.getBoundingClientRect();
-    let x = e.clientX - canvasRect.left - 20; // 20 is half of table width
-    let y = e.clientY - canvasRect.top - 20; // 20 is half of table height
-
-    // boundary checks
-    x = Math.max(0, Math.min(x, canvasRect.width - 40));
-    y = Math.max(0, Math.min(y, canvasRect.height - 40));
-
-    const updatedCafeterias = [...cafeterias];
-    updatedCafeterias[selectedCafeteriaIndex].layout[draggingTable.tableIndex] = {
-      ...updatedCafeterias[selectedCafeteriaIndex].layout[draggingTable.tableIndex],
-      x,
-      y,
-    };
-    setCafeterias(updatedCafeterias);
-  };
-  
-  const handleMouseUp = () => {
-    setDraggingTable(null);
-  };
-  
-  // Onboarding Finish
   const finishOnboarding = async () => {
     if (!orgId) {
         toast({ title: "Error", description: "Organization ID not found. Please log in again.", variant: 'destructive' });
@@ -154,7 +111,8 @@ export default function OnboardingPage() {
     try {
       const cafeteriasCollectionRef = collection(db, "cafeterias");
       for (const cafe of cafeterias) {
-        await addDoc(cafeteriasCollectionRef, { ...cafe, orgId, capacity: cafe.layout.length * 4 });
+        const { id, ...cafeData } = cafe;
+        await addDoc(cafeteriasCollectionRef, { ...cafeData, orgId, capacity: cafe.layout.length * 4 });
       }
 
       const meetingRoomsCollectionRef = collection(db, "meetingRooms");
@@ -175,9 +133,17 @@ export default function OnboardingPage() {
         })
     }
   };
+  
+  const handleTempSave = async (index: number, updatedCafeteria: Omit<Cafeteria, 'orgId'>) => {
+    const updatedCafeterias = [...cafeterias];
+    updatedCafeterias[index] = updatedCafeteria;
+    setCafeterias(updatedCafeterias);
+  }
+
+  const selectedCafeteria = selectedCafeteriaIndex !== null ? cafeterias[selectedCafeteriaIndex] : null;
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-4xl">
         <CardHeader>
           <CardTitle className="text-2xl font-headline">Workspace Setup</CardTitle>
@@ -196,7 +162,6 @@ export default function OnboardingPage() {
             
             <TabsContent value="cafeterias" className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Cafeteria List and Add Form */}
                 <div className="md:col-span-1 space-y-4">
                   <div>
                     <Label htmlFor="cafeteria-name">New Cafeteria Name</Label>
@@ -221,35 +186,21 @@ export default function OnboardingPage() {
                   </div>
                 </div>
 
-                {/* Layout Editor */}
                 <div className="md:col-span-2">
-                   {selectedCafeteriaIndex !== null && cafeterias[selectedCafeteriaIndex] ? (
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h3 className="font-medium text-lg">{cafeterias[selectedCafeteriaIndex].name} Layout</h3>
-                            <Button onClick={addTableToCafeteria}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add Table
-                            </Button>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                            Drag and drop tables to arrange the layout. Each table has 4 seats.
-                        </p>
-                        <div ref={canvasRef} className="relative w-full h-96 rounded-md border bg-slate-50 cursor-grab" onMouseDown={(e) => {if(draggingTable) e.currentTarget.style.cursor = 'grabbing'}} onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}>
-                             {cafeterias[selectedCafeteriaIndex].layout.map((table, tableIndex) => (
-                                <div
-                                key={table.id}
-                                onMouseDown={(e) => handleMouseDown(e, tableIndex)}
-                                className="absolute w-10 h-10 flex items-center justify-center rounded-md bg-primary text-primary-foreground cursor-pointer select-none"
-                                style={{ left: table.x, top: table.y, userSelect: 'none' }}
-                                >
-                                    <TableIcon className="w-6 h-6"/>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-right font-medium">
-                            Total Capacity: {cafeterias[selectedCafeteriaIndex].layout.length * 4} seats
-                        </div>
-                    </div>
+                   {selectedCafeteria && selectedCafeteriaIndex !== null ? (
+                     <div className="space-y-4">
+                       <h3 className="font-medium text-lg">{selectedCafeteria.name} Layout</h3>
+                        <CafeteriaLayoutEditor 
+                          cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, orgId: ''}} 
+                          onSave={(updatedLayout) => {
+                              const updatedCafes = [...cafeterias];
+                              updatedCafes[selectedCafeteriaIndex].layout = updatedLayout;
+                              updatedCafes[selectedCafeteriaIndex].capacity = updatedLayout.length * 4;
+                              setCafeterias(updatedCafes);
+                              toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})
+                          }}
+                        />
+                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-slate-50 rounded-md border text-center p-4">
                         <Utensils className="w-12 h-12 mb-4 text-gray-400" />
