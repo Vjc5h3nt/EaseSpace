@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { cn } from '@/lib/utils';
 import { CafeteriaLayoutEditor } from '@/components/cafeteria-layout-editor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
 
 export default function OnboardingPage() {
@@ -37,6 +39,7 @@ export default function OnboardingPage() {
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
   const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
+  const [isLayoutEditorOpen, setIsLayoutEditorOpen] = useState(false);
   
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -60,6 +63,7 @@ export default function OnboardingPage() {
       setCafeterias([...cafeterias, newCafe]);
       setNewCafeteriaName("");
       setSelectedCafeteriaIndex(cafeterias.length);
+      setIsLayoutEditorOpen(true);
     }
   };
 
@@ -81,6 +85,7 @@ export default function OnboardingPage() {
           name: newRoomName,
           capacity: parseInt(newRoomCapacity),
           amenities: newRoomAmenities.split(",").map((a) => a.trim()),
+          imageUrl: '',
         },
       ]);
       setNewRoomName("");
@@ -134,16 +139,23 @@ export default function OnboardingPage() {
     }
   };
   
-  const handleLayoutChange = (index: number, newLayout: TableLayout[]) => {
+  const handleLayoutChange = useCallback((index: number, newLayout: TableLayout[]) => {
       const updatedCafes = [...cafeterias];
-      updatedCafes[index].layout = newLayout;
-      updatedCafes[index].capacity = newLayout.length * 4;
-      setCafeterias(updatedCafes);
-  };
+      if(updatedCafes[index]) {
+        updatedCafes[index].layout = newLayout;
+        updatedCafes[index].capacity = newLayout.length * 4;
+        setCafeterias(updatedCafes);
+      }
+  }, [cafeterias]);
 
   const handleSaveLayout = () => {
     toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})
-    // Here you could add logic to close a dialog if this was in one.
+    setIsLayoutEditorOpen(false);
+  }
+
+  const handleEditLayout = (index: number) => {
+    setSelectedCafeteriaIndex(index);
+    setIsLayoutEditorOpen(true);
   }
 
   const selectedCafeteria = selectedCafeteriaIndex !== null ? cafeterias[selectedCafeteriaIndex] : null;
@@ -176,8 +188,7 @@ export default function OnboardingPage() {
             </TabsList>
             
             <TabsContent value="cafeterias" className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-1 space-y-4">
+                <div className="space-y-4">
                   <div>
                     <Label htmlFor="cafeteria-name">New Cafeteria Name</Label>
                     <div className="flex gap-2 mt-1">
@@ -185,44 +196,44 @@ export default function OnboardingPage() {
                       <Button onClick={addCafeteria} size="icon"><PlusCircle className="h-4 w-4" /></Button>
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 border rounded-md p-2">
                     <Label>Your Cafeterias</Label>
-                    {cafeterias.length === 0 && <p className="text-xs text-muted-foreground">No cafeterias added yet.</p>}
+                    {cafeterias.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No cafeterias added yet.</p>}
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                       {cafeterias.map((cafe, index) => (
-                        <div key={index} className={cn("flex items-center justify-between rounded-md border p-2 cursor-pointer", selectedCafeteriaIndex === index ? 'bg-accent text-accent-foreground' : 'hover:bg-muted')} >
-                          <span className="flex-grow" onClick={() => setSelectedCafeteriaIndex(index)}>{cafe.name}</span>
-                          <Button variant="ghost" size="icon" onClick={() => removeCafeteria(index)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div key={index} className={cn("flex items-center justify-between rounded-md border p-2")} >
+                          <span>{cafe.name}</span>
+                          <div className='flex items-center gap-2'>
+                            <Button variant="outline" size="sm" onClick={() => handleEditLayout(index)}>Edit Layout</Button>
+                            <Button variant="ghost" size="icon" onClick={() => removeCafeteria(index)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                <div className="md:col-span-2">
-                   {selectedCafeteria && selectedCafeteriaIndex !== null ? (
-                     <div className="space-y-4">
-                       <h3 className="font-medium text-lg">{selectedCafeteria.name} Layout</h3>
-                        <CafeteriaLayoutEditor 
-                          cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
-                          onLayoutChange={(newLayout) => handleLayoutChange(selectedCafeteriaIndex, newLayout)}
-                          onSave={handleSaveLayout}
-                        />
-                        <div className="flex justify-end">
-                            <Button onClick={handleSaveLayout}>Save Layout</Button>
-                        </div>
-                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-slate-50 rounded-md border text-center p-4">
-                        <Utensils className="w-12 h-12 mb-4 text-gray-400" />
-                        <p className="font-semibold">Select or create a cafeteria</p>
-                        <p className="text-sm">Once a cafeteria is selected, you can edit its table layout here.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+                {selectedCafeteria && selectedCafeteriaIndex !== null && (
+                    <Dialog open={isLayoutEditorOpen} onOpenChange={setIsLayoutEditorOpen}>
+                        <DialogContent className="max-w-4xl">
+                            <DialogHeader>
+                                <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
+                            </DialogHeader>
+                            <CafeteriaLayoutEditor 
+                                cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
+                                onLayoutChange={(newLayout) => handleLayoutChange(selectedCafeteriaIndex, newLayout)}
+                            />
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                   <Button variant="outline">Cancel</Button>
+                                </DialogClose>
+                                <Button onClick={handleSaveLayout}>Save Layout</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </TabsContent>
 
             <TabsContent value="meeting-rooms" className="mt-4">
@@ -269,3 +280,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+    

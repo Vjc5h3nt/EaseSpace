@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
@@ -20,12 +21,12 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
 
     useEffect(() => {
         setLayout(cafeteria.layout || []);
-    }, [cafeteria]);
+    }, [cafeteria.layout]);
     
     useEffect(() => {
         onLayoutChange(layout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [layout]);
+    }, [layout, onLayoutChange]);
 
 
     const addTable = () => {
@@ -105,3 +106,5 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
         </div>
     );
 }
+
+    
