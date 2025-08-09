@@ -39,6 +39,7 @@ export default function OnboardingPage() {
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
   const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
+  const [currentLayout, setCurrentLayout] = useState<TableLayout[]>([]);
   
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -61,17 +62,11 @@ export default function OnboardingPage() {
       const newCafe = { name: newCafeteriaName, layout: [], capacity: 0 };
       setCafeterias([...cafeterias, newCafe]);
       setNewCafeteriaName("");
-      setSelectedCafeteriaIndex(cafeterias.length); // This will be the index of the newly added cafe
     }
   };
 
   const removeCafeteria = (index: number) => {
     setCafeterias(cafeterias.filter((_, i) => i !== index));
-    if (selectedCafeteriaIndex === index) {
-      setSelectedCafeteriaIndex(null);
-    } else if (selectedCafeteriaIndex && selectedCafeteriaIndex > index) {
-      setSelectedCafeteriaIndex(selectedCafeteriaIndex - 1);
-    }
   };
   
   // Meeting Room Management
@@ -106,7 +101,7 @@ export default function OnboardingPage() {
       const cafeteriasCollectionRef = collection(db, "cafeterias");
       for (const cafe of cafeterias) {
         const { id, ...cafeData } = cafe;
-        await addDoc(cafeteriasCollectionRef, { ...cafeData, org_id: orgId, capacity: cafe.layout.length * 4 });
+        await addDoc(cafeteriasCollectionRef, { ...cafeData, org_id: orgId });
       }
 
       const meetingRoomsCollectionRef = collection(db, "meetingRooms");
@@ -137,31 +132,31 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleLayoutChange = useCallback((newLayout: TableLayout[]) => {
-      if (selectedCafeteriaIndex === null) return;
-      setCafeterias(currentCafes => {
-          const updatedCafes = [...currentCafes];
-          const cafeToUpdate = updatedCafes[selectedCafeteriaIndex];
-          if (cafeToUpdate) {
-              cafeToUpdate.layout = newLayout;
-              cafeToUpdate.capacity = newLayout.length * 4;
-          }
-          return updatedCafes;
-      });
-  }, [selectedCafeteriaIndex]);
-
 
   const handleSaveLayout = () => {
+    if (selectedCafeteriaIndex === null) return;
+    
+    setCafeterias(currentCafes => {
+        const updatedCafes = [...currentCafes];
+        const cafeToUpdate = updatedCafes[selectedCafeteriaIndex];
+        if (cafeToUpdate) {
+            cafeToUpdate.layout = currentLayout;
+            cafeToUpdate.capacity = currentLayout.length * 4;
+        }
+        return updatedCafes;
+    });
+
     toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})
     setSelectedCafeteriaIndex(null);
   }
 
   const handleEditLayout = (index: number) => {
     setSelectedCafeteriaIndex(index);
+    setCurrentLayout(cafeterias[index].layout || []);
   }
   
   const isLayoutEditorOpen = selectedCafeteriaIndex !== null;
-  const selectedCafeteria = isLayoutEditorOpen ? cafeterias[selectedCafeteriaIndex] : null;
+  const selectedCafeteria = isLayoutEditorOpen ? cafeterias[selectedCafeteriaIndex!] : null;
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -269,8 +264,8 @@ export default function OnboardingPage() {
                         <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
                     </DialogHeader>
                     <CafeteriaLayoutEditor 
-                        cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
-                        onLayoutChange={handleLayoutChange}
+                        cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: '', layout: currentLayout}} 
+                        onLayoutChange={setCurrentLayout}
                     />
                     <DialogFooter>
                         <DialogClose asChild>
