@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { doc, getDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -32,19 +32,16 @@ function CafeteriaBookingComponent() {
     const [timeSlot, setTimeSlot] = useState<string>("");
     const [seatCount, setSeatCount] = useState<number>(1);
 
-    const [userId, setUserId] = useState<string | null>(null);
-    const [orgId, setOrgId] = useState<string | null>(null);
+    const [user, setUser] = useState<{uid: string, org_id: string} | null>(null);
 
     useEffect(() => {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        if(user){
-            setUserId(user.uid);
-            const userDocRef = doc(db, 'users', user.uid);
-            getDoc(userDocRef).then(userDoc => {
-                if(userDoc.exists()) {
-                    setOrgId(userDoc.data().org_id);
-                }
-            })
+      const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        if(currentUser){
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            if(userDoc.exists()) {
+                setUser({ uid: currentUser.uid, org_id: userDoc.data().org_id });
+            }
         } else {
             router.push('/login');
         }
@@ -81,7 +78,7 @@ function CafeteriaBookingComponent() {
     };
 
     const handleConfirmBooking = async () => {
-        if (!cafeteria || !selectedTable || !bookingDate || !timeSlot || !userId || !orgId) {
+        if (!cafeteria || !selectedTable || !bookingDate || !timeSlot || !user) {
             toast({ title: "Booking Error", description: "Please fill all fields.", variant: "destructive" });
             return;
         }
@@ -90,8 +87,8 @@ function CafeteriaBookingComponent() {
             // Logic to check for conflicts would go here
             
             const newBooking: Omit<Booking, 'id'> = {
-                org_id: orgId,
-                userId: userId,
+                org_id: user.org_id,
+                userId: user.uid,
                 spaceId: cafeteria.id,
                 spaceType: 'cafeteria',
                 date: format(bookingDate, "yyyy-MM-dd"),
@@ -107,6 +104,10 @@ function CafeteriaBookingComponent() {
             toast({ title: "Booking Confirmed!", description: `You have booked ${seatCount} seat(s) at table ${selectedTable.id}.` });
             setIsBookingDialogOpen(false);
             setSelectedTable(null);
+            setTimeSlot("");
+            setSeatCount(1);
+            setBookingDate(new Date());
+
         } catch (error: any) {
              toast({ title: "Booking Failed", description: error.message, variant: "destructive" });
         }
@@ -133,7 +134,7 @@ function CafeteriaBookingComponent() {
                         onClick={() => handleTableClick(table)}
                     >
                         <TableIcon className="w-7 h-7" />
-                        <span className="absolute -bottom-5 text-xs text-neutral-700 font-medium">{table.id.split('-')[1]}</span>
+                        <span className="absolute -bottom-5 text-xs text-neutral-700 font-medium">{table.id.split('-')[1] || table.id}</span>
                     </div>
                 ))}
             </div>
@@ -142,7 +143,7 @@ function CafeteriaBookingComponent() {
                  <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Book a Seat at Table {selectedTable.id.split('-')[1]}</DialogTitle>
+                            <DialogTitle>Book a Seat at Table {selectedTable.id.split('-')[1] || selectedTable.id}</DialogTitle>
                             <DialogDescription>Select your desired date, time, and number of seats.</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
