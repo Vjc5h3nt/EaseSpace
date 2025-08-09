@@ -21,7 +21,7 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
 
     useEffect(() => {
         setLayout(cafeteria.layout || []);
-    }, [cafeteria.layout]);
+    }, [cafeteria.id, cafeteria.layout]);
     
     useEffect(() => {
         onLayoutChange(layout);
@@ -105,5 +105,3 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
         </div>
     );
 }
-
-    

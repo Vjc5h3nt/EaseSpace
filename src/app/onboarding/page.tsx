@@ -39,7 +39,6 @@ export default function OnboardingPage() {
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
   const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
-  const [isLayoutEditorOpen, setIsLayoutEditorOpen] = useState(false);
   
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -63,7 +62,6 @@ export default function OnboardingPage() {
       setCafeterias([...cafeterias, newCafe]);
       setNewCafeteriaName("");
       setSelectedCafeteriaIndex(cafeterias.length); // This will be the index of the newly added cafe
-      setIsLayoutEditorOpen(true);
     }
   };
 
@@ -138,30 +136,31 @@ export default function OnboardingPage() {
         })
     }
   };
-  
+
   const handleLayoutChange = useCallback((layout: TableLayout[]) => {
+      if (selectedCafeteriaIndex === null) return;
       setCafeterias(currentCafes => {
-        if(selectedCafeteriaIndex === null) return currentCafes;
-        const updatedCafes = [...currentCafes];
-        if (updatedCafes[selectedCafeteriaIndex]) {
-            updatedCafes[selectedCafeteriaIndex].layout = layout;
-            updatedCafes[selectedCafeteriaIndex].capacity = layout.length * 4;
-        }
-        return updatedCafes;
-    });
+          const updatedCafes = [...currentCafes];
+          if (updatedCafes[selectedCafeteriaIndex]) {
+              updatedCafes[selectedCafeteriaIndex].layout = layout;
+              updatedCafes[selectedCafeteriaIndex].capacity = layout.length * 4;
+          }
+          return updatedCafes;
+      });
   }, [selectedCafeteriaIndex]);
+
 
   const handleSaveLayout = () => {
     toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})
-    setIsLayoutEditorOpen(false);
+    setSelectedCafeteriaIndex(null);
   }
 
   const handleEditLayout = (index: number) => {
     setSelectedCafeteriaIndex(index);
-    setIsLayoutEditorOpen(true);
   }
-
-  const selectedCafeteria = selectedCafeteriaIndex !== null ? cafeterias[selectedCafeteriaIndex] : null;
+  
+  const isLayoutEditorOpen = selectedCafeteriaIndex !== null;
+  const selectedCafeteria = isLayoutEditorOpen ? cafeterias[selectedCafeteriaIndex] : null;
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -260,26 +259,28 @@ export default function OnboardingPage() {
           </div>
         </CardContent>
       </Card>
-
-      <Dialog open={isLayoutEditorOpen} onOpenChange={setIsLayoutEditorOpen}>
-        {selectedCafeteria && selectedCafeteriaIndex !== null && (
-          <DialogContent className="max-w-4xl">
-              <DialogHeader>
-                  <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
-              </DialogHeader>
-              <CafeteriaLayoutEditor 
-                  cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
-                  onLayoutChange={handleLayoutChange}
-              />
-              <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsLayoutEditorOpen(false)}>Cancel</Button>
-                  <Button onClick={handleSaveLayout}>Save Layout</Button>
-              </DialogFooter>
-          </DialogContent>
-        )}
+      
+      <Dialog open={isLayoutEditorOpen} onOpenChange={setSelectedCafeteriaIndex.bind(null, null)}>
+        <DialogContent className="max-w-4xl">
+            {selectedCafeteria && (
+                <>
+                    <DialogHeader>
+                        <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
+                    </DialogHeader>
+                    <CafeteriaLayoutEditor 
+                        cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: ''}} 
+                        onLayoutChange={handleLayoutChange}
+                    />
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                        </DialogClose>
+                        <Button onClick={handleSaveLayout}>Save Layout</Button>
+                    </DialogFooter>
+                </>
+            )}
+        </DialogContent>
       </Dialog>
     </div>
   );
 }
-
-    
