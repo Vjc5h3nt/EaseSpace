@@ -140,13 +140,15 @@ export default function OnboardingPage() {
   };
   
   const handleLayoutChange = useCallback((index: number, newLayout: TableLayout[]) => {
-      const updatedCafes = [...cafeterias];
-      if(updatedCafes[index]) {
-        updatedCafes[index].layout = newLayout;
-        updatedCafes[index].capacity = newLayout.length * 4;
-        setCafeterias(updatedCafes);
-      }
-  }, [cafeterias]);
+    setCafeterias(currentCafes => {
+        const updatedCafes = [...currentCafes];
+        if (updatedCafes[index]) {
+            updatedCafes[index].layout = newLayout;
+            updatedCafes[index].capacity = newLayout.length * 4;
+        }
+        return updatedCafes;
+    });
+  }, []);
 
   const handleSaveLayout = () => {
     toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})

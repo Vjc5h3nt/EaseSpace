@@ -25,7 +25,6 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
     
     useEffect(() => {
         onLayoutChange(layout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [layout, onLayoutChange]);
 
 
