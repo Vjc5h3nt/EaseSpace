@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Users, Pencil, Utensils, Building } from "lucide-react";
-import { ChatInterface } from "@/components/chat-interface";
-import { getBookingInsights } from "@/ai/flows/admin-booking-insights";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { Pencil, Utensils, Building } from "lucide-react";
 import type { Booking, Cafeteria, MeetingRoom } from "@/lib/types";
 import { auth, db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
@@ -103,8 +101,8 @@ export default function AdminDashboardPage() {
             </div>
         </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
+        <section>
+             <Card>
                 <CardHeader>
                     <CardTitle className="text-xl font-semibold text-neutral-900">Manage Spaces</CardTitle>
                 </CardHeader>
@@ -149,22 +147,6 @@ export default function AdminDashboardPage() {
                     </div>
                 </CardContent>
             </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle className="text-xl font-semibold text-neutral-900">Admin AI Assistant</CardTitle>
-                    <CardDescription>Ask questions about booking data and get instant insights.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ChatInterface
-                        onSendMessage={async (message) => {
-                            const result = await getBookingInsights({ question: message });
-                            return result.answer;
-                        }}
-                        placeholder="e.g., How many users booked Cafeteria 2?"
-                        emptyStateText="Ask for insights on your booking data."
-                    />
-                </CardContent>
-            </Card>
         </section>
 
         <section>
@@ -177,11 +159,7 @@ export default function AdminDashboardPage() {
                             <BarChart data={peakHoursData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis fontSize={12} tickLine={false} axisLine={false} hide />
-                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                    {peakHoursData.map((entry, index) => (
-                                         <rect key={`cell-${index}`} fill={entry.name === '2PM' ? 'var(--primary-500)' : 'var(--primary-100)'}/>
-                                    ))}
-                                </Bar>
+                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -193,7 +171,7 @@ export default function AdminDashboardPage() {
                              <LineChart data={dailyUsageData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis fontSize={12} tickLine={false} axisLine={false} hide/>
-                                <Line type="monotone" dataKey="value" stroke="var(--primary-500)" strokeWidth={3} dot={false}/>
+                                <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} dot={false}/>
                              </LineChart>
                          </ResponsiveContainer>
                     </div>

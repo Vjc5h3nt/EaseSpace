@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send, Bot, User, Loader2 } from "lucide-react";
 import { cn } from '@/lib/utils';
 
@@ -29,10 +28,12 @@ export function ChatInterface({ onSendMessage, placeholder, emptyStateText }: Ch
 
   useEffect(() => {
     if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
+        setTimeout(() => {
+            scrollAreaRef.current?.scrollTo({
+                top: scrollAreaRef.current.scrollHeight,
+                behavior: 'smooth',
+            });
+        }, 100);
     }
   }, [messages]);
 
@@ -68,7 +69,7 @@ export function ChatInterface({ onSendMessage, placeholder, emptyStateText }: Ch
   };
 
   return (
-    <div className="flex flex-col h-[60vh] bg-card rounded-lg border">
+    <div className="flex flex-col h-full bg-card">
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
           {messages.length === 0 ? (
@@ -81,11 +82,11 @@ export function ChatInterface({ onSendMessage, placeholder, emptyStateText }: Ch
             messages.map((message) => (
               <div key={message.id} className={cn('flex items-start gap-3', message.sender === 'user' ? 'justify-end' : '')}>
                 {message.sender === 'ai' && (
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-8 w-8 bg-primary text-primary-foreground">
                     <AvatarFallback><Bot className="w-4 h-4" /></AvatarFallback>
                   </Avatar>
                 )}
-                <div className={cn('max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-4 py-2 text-sm', message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
+                <div className={cn('max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-4 py-2 text-sm break-words', message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
                   {message.text}
                 </div>
                 {message.sender === 'user' && (
@@ -98,7 +99,7 @@ export function ChatInterface({ onSendMessage, placeholder, emptyStateText }: Ch
           )}
           {isLoading && (
             <div className="flex items-start gap-3">
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8  bg-primary text-primary-foreground">
                 <AvatarFallback><Bot className="w-4 h-4" /></AvatarFallback>
               </Avatar>
               <div className="bg-muted rounded-lg px-4 py-2 flex items-center">
