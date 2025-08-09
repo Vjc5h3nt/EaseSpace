@@ -77,27 +77,27 @@ export default function AdminDashboardPage() {
   return (
     <div className="flex flex-col gap-8">
         <header>
-            <h1 class="text-3xl font-bold text-neutral-900">Dashboard</h1>
+            <h1 className="text-3xl font-bold text-neutral-900">Dashboard</h1>
         </header>
         <section>
-            <h2 class="text-xl font-semibold text-neutral-900 mb-4">Booking Statistics</h2>
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <h2 className="text-xl font-semibold text-neutral-900 mb-4">Booking Statistics</h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <Card>
                     <CardContent className="p-6">
-                        <p class="text-sm font-medium text-neutral-600">Total Bookings</p>
-                        <p class="text-3xl font-bold text-neutral-900">0</p>
+                        <p className="text-sm font-medium text-neutral-600">Total Bookings</p>
+                        <p className="text-3xl font-bold text-neutral-900">0</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-6">
-                        <p class="text-sm font-medium text-neutral-600">Active Users</p>
-                        <p class="text-3xl font-bold text-neutral-900">0</p>
+                        <p className="text-sm font-medium text-neutral-600">Active Users</p>
+                        <p className="text-3xl font-bold text-neutral-900">0</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-6">
-                        <p class="text-sm font-medium text-neutral-600">Avg. Booking Duration</p>
-                        <p class="text-3xl font-bold text-neutral-900">0</p>
+                        <p className="text-sm font-medium text-neutral-600">Avg. Booking Duration</p>
+                        <p className="text-3xl font-bold text-neutral-900">0</p>
                     </CardContent>
                 </Card>
             </div>
@@ -168,10 +168,10 @@ export default function AdminDashboardPage() {
         </section>
 
         <section>
-            <h2 class="text-xl font-semibold text-neutral-900 mb-4">Booking Trends</h2>
-             <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <div class="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-                    <h3 class="text-base font-semibold text-neutral-700 mb-4">Peak Booking Hours</h3>
+            <h2 className="text-xl font-semibold text-neutral-900 mb-4">Booking Trends</h2>
+             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+                    <h3 className="text-base font-semibold text-neutral-700 mb-4">Peak Booking Hours</h3>
                     <div className="h-60">
                          <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={peakHoursData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
@@ -186,8 +186,8 @@ export default function AdminDashboardPage() {
                         </ResponsiveContainer>
                     </div>
                 </div>
-                 <div class="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-                    <h3 class="text-base font-semibold text-neutral-700 mb-4">Daily Usage</h3>
+                 <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+                    <h3 className="text-base font-semibold text-neutral-700 mb-4">Daily Usage</h3>
                      <div className="h-60">
                         <ResponsiveContainer width="100%" height="100%">
                              <LineChart data={dailyUsageData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
@@ -202,10 +202,10 @@ export default function AdminDashboardPage() {
         </section>
 
         <section>
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-neutral-900">Recent Bookings</h2>
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-neutral-900">Recent Bookings</h2>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
                 <Table>
                     <TableHeader className="bg-neutral-50 text-xs uppercase text-neutral-700">
                         <TableRow>
