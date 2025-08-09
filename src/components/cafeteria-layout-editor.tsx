@@ -15,17 +15,16 @@ interface CafeteriaLayoutEditorProps {
 
 export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLayoutEditorProps) {
     const { toast } = useToast();
-    const [layout, setLayout] = useState<TableLayout[]>(cafeteria.layout || []);
+    const [layout, setLayout] = useState<TableLayout[]>([]);
     const [draggingTable, setDraggingTable] = useState<{ tableIndex: number, offsetX: number, offsetY: number } | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // When the selected cafeteria changes, reset the internal layout state.
+        // Initialize layout state when the component mounts or cafeteria prop changes
         setLayout(cafeteria.layout || []);
-    }, [cafeteria]);
+    }, [cafeteria.id, cafeteria.layout]);
 
-    // This is the critical change: Report layout changes back to the parent.
-    // This hook runs ONLY when the internal layout state changes.
+    // This effect now correctly calls the parent updater function.
     useEffect(() => {
         onLayoutChange(layout);
     }, [layout, onLayoutChange]);

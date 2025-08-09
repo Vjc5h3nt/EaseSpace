@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -152,14 +152,9 @@ export default function OnboardingPage() {
 
   const handleEditLayout = (index: number) => {
     setSelectedCafeteriaIndex(index);
-    // Initialize currentLayout with the layout of the selected cafeteria
     setCurrentLayout(cafeterias[index].layout || []);
   }
   
-  const handleLayoutChange = useCallback((newLayout: TableLayout[]) => {
-      setCurrentLayout(newLayout);
-  }, []);
-
   const isLayoutEditorOpen = selectedCafeteriaIndex !== null;
   const selectedCafeteria = isLayoutEditorOpen ? cafeterias[selectedCafeteriaIndex!] : null;
 
@@ -261,7 +256,7 @@ export default function OnboardingPage() {
         </CardContent>
       </Card>
       
-      <Dialog open={isLayoutEditorOpen} onOpenChange={(isOpen) => !isOpen && setSelectedCafeteriaIndex(null)}>
+      <Dialog open={isLayoutEditorOpen} onOpenChange={(isOpen) => { if (!isOpen) setSelectedCafeteriaIndex(null); }}>
         <DialogContent className="max-w-4xl">
             {selectedCafeteria && (
                 <>
@@ -269,8 +264,8 @@ export default function OnboardingPage() {
                         <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
                     </DialogHeader>
                     <CafeteriaLayoutEditor 
-                        cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, layout: currentLayout}} 
-                        onLayoutChange={handleLayoutChange}
+                        cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`}} 
+                        onLayoutChange={setCurrentLayout}
                     />
                     <DialogFooter>
                         <DialogClose asChild>
