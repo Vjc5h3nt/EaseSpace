@@ -145,7 +145,7 @@ export default function SignupPage() {
               
               <Button type="submit" className="w-full mt-2" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Account
+                Create Account & Set Up Workspace
               </Button>
             </form>
           </Form>

@@ -7,14 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Trash2, Building, Utensils } from "lucide-react";
+import { PlusCircle, Trash2, Building, Utensils, AlertTriangle } from "lucide-react";
 import type { Cafeteria, MeetingRoom } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db } from '@/lib/firebase';
 import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { cn } from '@/lib/utils';
 import { CafeteriaLayoutEditor } from '@/components/cafeteria-layout-editor';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 export default function OnboardingPage() {
@@ -41,16 +42,6 @@ export default function OnboardingPage() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // Ensure email is verified before allowing onboarding
-        if (!currentUser.emailVerified) {
-            toast({
-                title: "Email not verified",
-                description: "Please verify your email before setting up your organization.",
-                variant: "destructive"
-            });
-            router.push('/login');
-            return;
-        }
         const userDocRef = doc(db, "users", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
@@ -119,11 +110,20 @@ export default function OnboardingPage() {
       for (const room of meetingRooms) {
         await addDoc(meetingRoomsCollectionRef, { ...room, org_id: orgId });
       }
+      
+      if(user && !user.emailVerified) {
+         await sendEmailVerification(user);
+         toast({
+            title: "Verification Email Sent",
+            description: "Please check your inbox to verify your email address.",
+          });
+      }
 
       toast({
         title: "Onboarding Complete!",
         description: "Your workspace has been configured.",
       });
+
       router.push("/dashboard/admin");
     } catch (error: any) {
         toast({
@@ -148,6 +148,15 @@ export default function OnboardingPage() {
         <CardHeader>
           <CardTitle className="text-2xl font-headline">Workspace Setup</CardTitle>
           <CardDescription>Configure your cafeterias and meeting rooms for your organization.</CardDescription>
+           {user && !user.emailVerified && (
+             <Alert variant="destructive" className="mt-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Email Verification Required</AlertTitle>
+                <AlertDescription>
+                   Please verify your email address to ensure full access to your account features. A verification link will be sent when you finish onboarding.
+                </AlertDescription>
+            </Alert>
+          )}
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="cafeterias" className="w-full">
