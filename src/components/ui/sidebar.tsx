@@ -1,3 +1,8 @@
+// This component is no longer used in the new design.
+// The sidebar logic is now handled directly in `src/app/dashboard/layout.tsx`.
+// This file is kept to avoid breaking imports in other components if they exist,
+// but it can be safely removed if no other component depends on it.
+
 "use client"
 
 import * as React from "react"
