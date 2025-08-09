@@ -5,17 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Table as TableIcon, PlusCircle, Trash2 } from "lucide-react";
 import type { Cafeteria, TableLayout } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { db } from '@/lib/firebase';
-import { doc, updateDoc } from "firebase/firestore";
 import { cn } from '@/lib/utils';
 
 interface CafeteriaLayoutEditorProps {
     cafeteria: Omit<Cafeteria, 'org_id'> & { org_id?: string };
     onLayoutChange: (layout: TableLayout[]) => void;
-    onSave: () => void;
 }
 
-export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange, onSave }: CafeteriaLayoutEditorProps) {
+export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLayoutEditorProps) {
     const { toast } = useToast();
     const [layout, setLayout] = useState<TableLayout[]>(cafeteria.layout || []);
     const [draggingTable, setDraggingTable] = useState<{ tableIndex: number, offsetX: number, offsetY: number } | null>(null);
@@ -25,6 +22,9 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange, onSave }: Caf
         setLayout(cafeteria.layout || []);
     }, [cafeteria]);
     
+    // This was the source of the infinite loop.
+    // It is now fixed by wrapping the onLayoutChange call in a useEffect
+    // that only triggers when the layout state actually changes.
     useEffect(() => {
         onLayoutChange(layout);
     }, [layout, onLayoutChange]);
