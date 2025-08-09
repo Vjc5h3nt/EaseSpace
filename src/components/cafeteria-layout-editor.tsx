@@ -20,9 +20,12 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
     const canvasRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // When the selected cafeteria changes, reset the internal layout state.
         setLayout(cafeteria.layout || []);
-    }, [cafeteria.id, cafeteria.layout]);
-    
+    }, [cafeteria]);
+
+    // This is the critical change: Report layout changes back to the parent.
+    // This hook runs ONLY when the internal layout state changes.
     useEffect(() => {
         onLayoutChange(layout);
     }, [layout, onLayoutChange]);

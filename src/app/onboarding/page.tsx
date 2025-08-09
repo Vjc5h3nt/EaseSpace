@@ -152,9 +152,14 @@ export default function OnboardingPage() {
 
   const handleEditLayout = (index: number) => {
     setSelectedCafeteriaIndex(index);
+    // Initialize currentLayout with the layout of the selected cafeteria
     setCurrentLayout(cafeterias[index].layout || []);
   }
   
+  const handleLayoutChange = useCallback((newLayout: TableLayout[]) => {
+      setCurrentLayout(newLayout);
+  }, []);
+
   const isLayoutEditorOpen = selectedCafeteriaIndex !== null;
   const selectedCafeteria = isLayoutEditorOpen ? cafeterias[selectedCafeteriaIndex!] : null;
 
@@ -264,8 +269,8 @@ export default function OnboardingPage() {
                         <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
                     </DialogHeader>
                     <CafeteriaLayoutEditor 
-                        cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, org_id: '', layout: currentLayout}} 
-                        onLayoutChange={setCurrentLayout}
+                        cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`, layout: currentLayout}} 
+                        onLayoutChange={handleLayoutChange}
                     />
                     <DialogFooter>
                         <DialogClose asChild>
