@@ -11,7 +11,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
-import { SeatwiseLogo } from "@/components/logo";
+import { Logo } from "@/components/logo";
 import { ChatbotPopup } from "@/components/chatbot-popup";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
@@ -49,10 +49,11 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
         <div className="fixed flex h-screen w-64 flex-col justify-between border-r border-neutral-200 bg-white p-4">
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-3 px-2">
-              <SeatwiseLogo className="h-8 w-8 text-primary" />
-              <h1 className="text-xl font-bold text-neutral-900">SeatWise
-                <span className="text-sm font-medium text-neutral-600"> Admin</span>
-              </h1>
+              <Logo className="h-8 w-8 text-primary" />
+              <div>
+                <h1 className="text-xl font-bold text-neutral-900">EaseSpace</h1>
+                <p className="text-sm font-medium text-neutral-500 -mt-1">Admin</p>
+              </div>
             </div>
             <nav className="flex flex-col gap-1">
               {navItems.map((item) => {
