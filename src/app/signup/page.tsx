@@ -47,7 +47,7 @@ export default function SignupPage() {
         name: values.organizationName,
         createdAt: new Date(),
       });
-      const orgId = orgRef.id;
+      const org_id = orgRef.id;
 
       // 2. Create the admin user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, values.adminEmail, values.password);
@@ -56,13 +56,12 @@ export default function SignupPage() {
       // 3. Create the user document in Firestore, linking to the organization
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
-        org_id: orgId,
+        org_id: org_id,
         fullName: values.adminFullName,
         email: values.adminEmail,
         role: "admin", // Assign admin role
       });
       
-      // 4. Temporarily bypass verification and redirect to onboarding
       toast({
         title: "Account Created!",
         description: "You can now set up your workspace.",
