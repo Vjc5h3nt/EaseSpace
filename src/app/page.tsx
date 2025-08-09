@@ -14,14 +14,6 @@ export default function Home() {
           <span className="sr-only">EaseSpace</span>
         </Link>
         <span className="ml-2 text-lg font-bold">EaseSpace</span>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Link href="/login" className="text-sm font-medium hover:underline underline-offset-4" prefetch={false}>
-            Login
-          </Link>
-          <Button asChild>
-            <Link href="/signup">Sign Up</Link>
-          </Button>
-        </nav>
       </header>
       <main className="flex-1">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-background">
