@@ -19,3 +19,13 @@ export interface MeetingRoom {
     capacity: number;
     amenities: string[];
 }
+
+export interface User {
+  uid: string;
+  email: string;
+  fullName: string;
+  organizationName: string;
+  location: string;
+  employeeId: string;
+  mobileNumber: string;
+}
