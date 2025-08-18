@@ -8,7 +8,7 @@ import { auth, db } from "@/lib/firebase";
 import type { User, Cafeteria, MeetingRoom } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LogOut, User as UserIcon, Utensils, Building, ArrowRight } from "lucide-react";
+import { LogOut, User as UserIcon, Utensils, Building, ArrowRight, CalendarCheck } from "lucide-react";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
 
@@ -86,6 +86,10 @@ export default function UserDashboardPage() {
             <Link href="/dashboard/user" className="flex items-center gap-3 rounded-md bg-primary-50 px-3 py-2.5 text-sm font-semibold text-primary-600">
               <Building className="h-5 w-5" />
               <span>Book a Space</span>
+            </Link>
+             <Link href="/dashboard/user/my-bookings" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-neutral-600 hover:bg-neutral-100">
+              <CalendarCheck className="h-5 w-5" />
+              <span className="text-sm font-medium">Manage My Booking</span>
             </Link>
             <Link href="/dashboard/user/profile" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-neutral-600 hover:bg-neutral-100">
               <UserIcon className="h-5 w-5" />

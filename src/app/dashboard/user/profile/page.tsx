@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User as UserIcon, Upload, ArrowLeft } from "lucide-react";
+import { User as UserIcon, Upload, ArrowLeft, Building, CalendarCheck, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db, storage } from '@/lib/firebase';
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
@@ -15,6 +15,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Logo } from '@/components/logo';
 
 export default function UserProfilePage() {
     const router = useRouter();
@@ -72,6 +73,16 @@ export default function UserProfilePage() {
             toast({ title: "Error", description: error.message, variant: "destructive" });
         }
     };
+    
+      const handleLogout = async () => {
+        try {
+          await auth.signOut();
+          router.push("/login");
+        } catch (error) {
+          console.error("Error signing out:", error);
+        }
+      };
+
 
     if (loading) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;
@@ -87,30 +98,29 @@ export default function UserProfilePage() {
             <aside className="w-64 flex flex-col justify-between border-r border-neutral-200 bg-white p-4">
                  <div className="flex flex-col gap-6">
                     <div className="flex items-center gap-3 px-2">
-                        <Link href="/dashboard/user" className="flex items-center gap-3">
-                           <svg className="h-8 w-8 text-primary" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                                <g clipPath="url(#clip0_6_535_2)">
-                                <path clipRule="evenodd" d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z" fill="currentColor" fillRule="evenodd"></path>
-                                </g>
-                                <defs>
-                                <clipPath id="clip0_6_535_2">
-                                <rect fill="white" height="48" width="48"></rect>
-                                </clipPath>
-                                </defs>
-                            </svg>
-                            <h1 className="text-xl font-bold text-neutral-900">EaseSpace</h1>
-                        </Link>
+                        <Logo className="h-8 w-8 text-primary" />
+                        <h1 className="text-xl font-bold text-neutral-900">EaseSpace</h1>
                     </div>
                     <nav className="flex flex-col gap-1">
                         <Link href="/dashboard/user" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-neutral-600 hover:bg-neutral-100">
                            <Building className="h-5 w-5" />
                            <span className="text-sm font-medium">Book a Space</span>
                         </Link>
+                         <Link href="/dashboard/user/my-bookings" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-neutral-600 hover:bg-neutral-100">
+                          <CalendarCheck className="h-5 w-5" />
+                          <span className="text-sm font-medium">Manage My Booking</span>
+                        </Link>
                         <Link href="/dashboard/user/profile" className="flex items-center gap-3 rounded-md bg-primary-50 px-3 py-2.5 text-sm font-semibold text-primary-600">
                            <UserIcon className="h-5 w-5" />
                            <span>Profile</span>
                         </Link>
                     </nav>
+                </div>
+                 <div>
+                  <Button variant="ghost" className="w-full justify-start text-neutral-600 hover:bg-neutral-100" onClick={handleLogout}>
+                    <LogOut className="mr-3 h-5 w-5" />
+                    <span className="text-sm font-medium">Logout</span>
+                  </Button>
                 </div>
             </aside>
             <main className="flex-1 p-8 overflow-y-auto">
@@ -159,30 +169,3 @@ export default function UserProfilePage() {
         </div>
     );
 }
-
-const Building = (props: any) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
-    <path d="M9 22v-4h6v4" />
-    <path d="M8 6h.01" />
-    <path d="M16 6h.01" />
-    <path d="M12 6h.01" />
-    <path d="M12 10h.01" />
-    <path d="M12 14h.01" />
-    <path d="M16 10h.01" />
-    <path d="M16 14h.01" />
-    <path d="M8 10h.01" />
-    <path d="M8 14h.01" />
-  </svg>
-);
