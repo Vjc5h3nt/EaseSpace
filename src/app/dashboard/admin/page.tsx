@@ -1,42 +1,23 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, Tooltip } from 'recharts';
 import { Pencil, Utensils, Building } from "lucide-react";
-import type { Booking, Cafeteria, MeetingRoom, TableLayout } from "@/lib/types";
+import type { Booking, Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { auth, db } from "@/lib/firebase";
-import { collection, doc, getDoc, getDocs, query, where, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, updateDoc, orderBy, limit } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CafeteriaLayoutEditor } from "@/components/cafeteria-layout-editor";
 import { useToast } from "@/hooks/use-toast";
+import { differenceInMinutes, format } from "date-fns";
 
-
-const peakHoursData = [
-  { name: '8AM', value: 40 },
-  { name: '10AM', value: 60 },
-  { name: '12PM', value: 80 },
-  { name: '2PM', value: 100 },
-  { name: '4PM', value: 70 },
-  { name: '6PM', value: 50 },
-  { name: '8PM', value: 30 },
-];
-
-const dailyUsageData = [
-  { name: 'Mon', value: 109 },
-  { name: 'Tue', value: 21 },
-  { name: 'Wed', value: 41 },
-  { name: 'Thu', value: 93 },
-  { name: 'Fri', value: 33 },
-  { name: 'Sat', value: 101 },
-  { name: 'Sun', value: 61 },
-];
-
-const recentBookings: (Booking & {userName: string, spaceName: string, seat: string})[] = [];
+type EnrichedBooking = Booking & { userName: string, spaceName: string };
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
@@ -44,7 +25,14 @@ export default function AdminDashboardPage() {
   const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
 
-  // State for layout editor
+  // Data states
+  const [stats, setStats] = useState({ totalBookings: 0, activeUsers: 0, avgDuration: "0h 0m" });
+  const [recentBookings, setRecentBookings] = useState<EnrichedBooking[]>([]);
+  const [peakHoursData, setPeakHoursData] = useState<{ name: string; value: number }[]>([]);
+  const [dailyUsageData, setDailyUsageData] = useState<{ name: string; value: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Layout editor state
   const [selectedCafeteria, setSelectedCafeteria] = useState<Cafeteria | null>(null);
   const [currentLayout, setCurrentLayout] = useState<TableLayout[]>([]);
 
@@ -57,28 +45,91 @@ export default function AdminDashboardPage() {
         if (userDocSnap.exists()) {
           const userOrgId = userDocSnap.data().org_id;
           setOrgId(userOrgId);
-          fetchSpaces(userOrgId);
+          fetchDashboardData(userOrgId);
         }
+      } else {
+        setLoading(false);
       }
     });
     return () => unsubscribe();
   }, []);
 
-  const fetchSpaces = async (orgId: string) => {
-    if (!orgId) return;
-    
-    // Fetch Cafeterias
-    const cafeteriasQuery = query(collection(db, "cafeterias"), where("org_id", "==", orgId));
-    const cafeteriasSnapshot = await getDocs(cafeteriasQuery);
-    const fetchedCafeterias = cafeteriasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafeteria));
-    setCafeterias(fetchedCafeterias);
+  const fetchDashboardData = async (orgId: string) => {
+      if (!orgId) return;
+      setLoading(true);
 
-    // Fetch Meeting Rooms
-    const meetingRoomsQuery = query(collection(db, "meetingRooms"), where("org_id", "==", orgId));
-    const meetingRoomsSnapshot = await getDocs(meetingRoomsQuery);
-    const fetchedMeetingRooms = meetingRoomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom));
-    setMeetingRooms(fetchedMeetingRooms);
-  };
+      try {
+        // Fetch all data in parallel
+        const [cafeteriasSnap, meetingRoomsSnap, bookingsSnap, usersSnap] = await Promise.all([
+            getDocs(query(collection(db, "cafeterias"), where("org_id", "==", orgId))),
+            getDocs(query(collection(db, "meetingRooms"), where("org_id", "==", orgId))),
+            getDocs(query(collection(db, "bookings"), where("org_id", "==", orgId))),
+            getDocs(query(collection(db, "users"), where("org_id", "==", orgId)))
+        ]);
+
+        const fetchedCafeterias = cafeteriasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafeteria));
+        const fetchedMeetingRooms = meetingRoomsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom));
+        const allBookings = bookingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+        const allUsers = usersSnap.docs.map(doc => doc.data() as User);
+
+        const usersMap = new Map(allUsers.map(u => [u.uid, u.fullName]));
+        const spacesMap = new Map([
+            ...fetchedCafeterias.map(c => [c.id, c.name]),
+            ...fetchedMeetingRooms.map(r => [r.id, r.name])
+        ]);
+
+        setCafeterias(fetchedCafeterias);
+        setMeetingRooms(fetchedMeetingRooms);
+
+        // Calculate stats
+        const totalBookings = allBookings.length;
+        const activeUsers = new Set(allBookings.map(b => b.userId)).size;
+        const totalDuration = allBookings.reduce((acc, b) => {
+            const startTime = new Date(`${b.date}T${b.startTime}`);
+            const endTime = new Date(`${b.date}T${b.endTime}`);
+            return acc + differenceInMinutes(endTime, startTime);
+        }, 0);
+        const avgDurationMinutes = totalBookings > 0 ? totalDuration / totalBookings : 0;
+        const avgDuration = `${Math.floor(avgDurationMinutes / 60)}h ${Math.round(avgDurationMinutes % 60)}m`;
+        setStats({ totalBookings, activeUsers, avgDuration });
+
+        // Process recent bookings
+        const sortedBookings = allBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const enrichedRecentBookings = sortedBookings.slice(0, 5).map(b => ({
+            ...b,
+            userName: usersMap.get(b.userId) || 'Unknown User',
+            spaceName: spacesMap.get(b.spaceId) || 'Unknown Space',
+            seat: b.tableId ? `Table ${b.tableId.split('-')[1]}` : 'N/A'
+        }));
+        setRecentBookings(enrichedRecentBookings);
+
+        // Process chart data
+        const hours = Array(24).fill(0);
+        allBookings.forEach(b => {
+            const startHour = parseInt(b.startTime.split(':')[0]);
+            hours[startHour]++;
+        });
+        setPeakHoursData(hours.map((count, i) => ({ name: `${i}:00`, value: count })).filter(h => h.value > 0));
+
+        const days = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 'Fri', 'Sat': 0 };
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        allBookings.forEach(b => {
+            const dayOfWeek = dayNames[new Date(b.date).getDay()];
+            if (days.hasOwnProperty(dayOfWeek)) {
+                 days[dayOfWeek as keyof typeof days]++;
+            }
+        });
+        setDailyUsageData(Object.entries(days).map(([name, value]) => ({ name, value: Number(value) })));
+
+
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+        toast({ title: "Error", description: "Could not load dashboard data.", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+  }
+
 
   const handleEditLayout = (cafe: Cafeteria) => {
     setSelectedCafeteria(cafe);
@@ -98,7 +149,7 @@ export default function AdminDashboardPage() {
             title: "Layout Saved!",
             description: `The layout for ${selectedCafeteria.name} has been updated.`,
         });
-        fetchSpaces(orgId!); // Refresh the spaces to show updated data
+        fetchDashboardData(orgId!); // Refresh the data
         setSelectedCafeteria(null); // Close dialog implicitly via state change
     } catch (error: any) {
         toast({
@@ -109,6 +160,10 @@ export default function AdminDashboardPage() {
     }
   };
   
+  if (loading) {
+    return <div className="flex justify-center items-center h-full">Loading dashboard...</div>
+  }
+
   return (
     <div className="flex flex-col gap-8">
         <header>
@@ -119,15 +174,15 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                  <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
                     <p className="text-sm font-medium text-neutral-600">Total Bookings</p>
-                    <p className="text-3xl font-bold text-neutral-900">0</p>
+                    <p className="text-3xl font-bold text-neutral-900">{stats.totalBookings}</p>
                 </Card>
                 <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
                     <p className="text-sm font-medium text-neutral-600">Active Users</p>
-                    <p className="text-3xl font-bold text-neutral-900">0</p>
+                    <p className="text-3xl font-bold text-neutral-900">{stats.activeUsers}</p>
                 </Card>
                 <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
                     <p className="text-sm font-medium text-neutral-600">Avg. Booking Duration</p>
-                    <p className="text-3xl font-bold text-neutral-900">0</p>
+                    <p className="text-3xl font-bold text-neutral-900">{stats.avgDuration}</p>
                 </Card>
             </div>
         </section>
@@ -146,7 +201,7 @@ export default function AdminDashboardPage() {
                             <p className="font-semibold">{cafe.name}</p>
                             <p className="text-sm text-neutral-600">Capacity: {cafe.capacity}</p>
                             </div>
-                            <Dialog onOpenChange={(isOpen) => !isOpen && setSelectedCafeteria(null)}>
+                            <Dialog open={selectedCafeteria?.id === cafe.id} onOpenChange={(isOpen) => !isOpen && setSelectedCafeteria(null)}>
                                 <DialogTrigger asChild>
                                 <Button variant="outline" size="sm" onClick={() => handleEditLayout(cafe)}><Pencil className="mr-2 h-3 w-3" /> Edit Layout</Button>
                                 </DialogTrigger>
@@ -158,7 +213,6 @@ export default function AdminDashboardPage() {
                                 <CafeteriaLayoutEditor 
                                     cafeteria={selectedCafeteria}
                                     onLayoutChange={setCurrentLayout} 
-                                    onSave={handleSaveLayout}
                                 />
                                 <DialogFooter>
                                     <DialogClose asChild>
@@ -199,6 +253,7 @@ export default function AdminDashboardPage() {
                             <BarChart data={peakHoursData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis fontSize={12} tickLine={false} axisLine={false} hide />
+                                <Tooltip />
                                 <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
@@ -211,6 +266,7 @@ export default function AdminDashboardPage() {
                              <LineChart data={dailyUsageData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis fontSize={12} tickLine={false} axisLine={false} hide/>
+                                <Tooltip />
                                 <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} dot={false}/>
                              </LineChart>
                          </ResponsiveContainer>
@@ -252,10 +308,13 @@ export default function AdminDashboardPage() {
                                 <TableCell className="px-6 py-4 text-neutral-600">{booking.date}</TableCell>
                                 <TableCell className="px-6 py-4 text-center">
                                     <Badge 
+                                        variant={
+                                            booking.status === 'Confirmed' ? 'default' :
+                                            booking.status === 'Cancelled' ? 'destructive' :
+                                            'secondary'
+                                        }
                                         className={
-                                            booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
-                                            booking.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                                            'bg-blue-100 text-blue-800'
+                                            booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' : ''
                                         }
                                     >
                                     {booking.status}
@@ -271,3 +330,6 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+
+    
