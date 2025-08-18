@@ -111,7 +111,7 @@ export default function AdminDashboardPage() {
         });
         setPeakHoursData(hours.map((count, i) => ({ name: `${i}:00`, value: count })).filter(h => h.value > 0));
 
-        const days = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 'Fri', 'Sat': 0 };
+        const days = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0 };
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         allBookings.forEach(b => {
             const dayOfWeek = dayNames[new Date(b.date).getDay()];
@@ -329,7 +329,5 @@ export default function AdminDashboardPage() {
         </section>
     </div>
   );
-}
-
 
     
