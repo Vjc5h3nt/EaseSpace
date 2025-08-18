@@ -26,7 +26,7 @@ export default function AdminDashboardPage() {
   const [orgId, setOrgId] = useState<string | null>(null);
 
   // Data states
-  const [stats, setStats] = useState({ totalBookings: 0, activeUsers: 0, avgDuration: "0h 0m" });
+  const [stats, setStats] = useState({ totalBookings: 0, activeUsers: 0, avgDuration: "0h 0m", confirmedBookings: 0, cancelledBookings: 0 });
   const [recentBookings, setRecentBookings] = useState<EnrichedBooking[]>([]);
   const [peakHoursData, setPeakHoursData] = useState<{ name: string; value: number }[]>([]);
   const [dailyUsageData, setDailyUsageData] = useState<{ name: string; value: number }[]>([]);
@@ -83,6 +83,8 @@ export default function AdminDashboardPage() {
 
         // Calculate stats
         const totalBookings = allBookings.length;
+        const confirmedBookings = allBookings.filter(b => b.status === 'Confirmed').length;
+        const cancelledBookings = allBookings.filter(b => b.status === 'Cancelled').length;
         const activeUsers = new Set(allBookings.map(b => b.userId)).size;
         const totalDuration = allBookings.reduce((acc, b) => {
             const startTime = new Date(`${b.date}T${b.startTime}`);
@@ -91,7 +93,7 @@ export default function AdminDashboardPage() {
         }, 0);
         const avgDurationMinutes = totalBookings > 0 ? totalDuration / totalBookings : 0;
         const avgDuration = `${Math.floor(avgDurationMinutes / 60)}h ${Math.round(avgDurationMinutes % 60)}m`;
-        setStats({ totalBookings, activeUsers, avgDuration });
+        setStats({ totalBookings, activeUsers, avgDuration, confirmedBookings, cancelledBookings });
 
         // Process recent bookings
         const sortedBookings = allBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -171,10 +173,18 @@ export default function AdminDashboardPage() {
         </header>
         <section>
             <h2 className="text-xl font-semibold text-neutral-900 mb-4">Booking Statistics</h2>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
                  <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
                     <p className="text-sm font-medium text-neutral-600">Total Bookings</p>
                     <p className="text-3xl font-bold text-neutral-900">{stats.totalBookings}</p>
+                </Card>
+                 <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+                    <p className="text-sm font-medium text-neutral-600">Confirmed Bookings</p>
+                    <p className="text-3xl font-bold text-neutral-900">{stats.confirmedBookings}</p>
+                </Card>
+                 <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+                    <p className="text-sm font-medium text-neutral-600">Cancelled Bookings</p>
+                    <p className="text-3xl font-bold text-neutral-900">{stats.cancelledBookings}</p>
                 </Card>
                 <Card className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
                     <p className="text-sm font-medium text-neutral-600">Active Users</p>
