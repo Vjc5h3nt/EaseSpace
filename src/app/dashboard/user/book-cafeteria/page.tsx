@@ -15,6 +15,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
+import { Label } from '@/components/ui/label';
 
 function CafeteriaBookingComponent() {
     const router = useRouter();
