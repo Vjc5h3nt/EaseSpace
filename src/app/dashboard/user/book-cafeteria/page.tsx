@@ -37,7 +37,7 @@ function CafeteriaBookingComponent() {
     // Booking form state
     const [bookingDate, setBookingDate] = useState<Date | undefined>(new Date());
     const [timeSlot, setTimeSlot] = useState<string>("");
-    const [seatCount, setSeatCount] = useState<number>(1);
+    const [seatCount, setSeatCount] = useState<number>(0);
     
     const [bookingsBySlot, setBookingsBySlot] = useState<BookingsForSlot>({});
 
@@ -134,8 +134,8 @@ function CafeteriaBookingComponent() {
     };
 
     const handleConfirmBooking = async () => {
-        if (!cafeteria || !selectedTable || !bookingDate || !timeSlot || !user) {
-            toast({ title: "Booking Error", description: "Please fill all fields.", variant: "destructive" });
+        if (!cafeteria || !selectedTable || !bookingDate || !timeSlot || !user || seatCount === 0) {
+            toast({ title: "Booking Error", description: "Please select number of seats.", variant: "destructive" });
             return;
         }
         
@@ -170,7 +170,7 @@ function CafeteriaBookingComponent() {
 
             setIsBookingDialogOpen(false);
             setSelectedTable(null);
-            setSeatCount(1);
+            setSeatCount(0);
 
         } catch (error: any) {
              toast({ title: "Booking Failed", description: error.message, variant: "destructive" });
@@ -272,7 +272,7 @@ function CafeteriaBookingComponent() {
                         </div>
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setIsBookingDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleConfirmBooking}>Confirm Booking</Button>
+                            <Button onClick={handleConfirmBooking} disabled={seatCount === 0}>Confirm Booking</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>

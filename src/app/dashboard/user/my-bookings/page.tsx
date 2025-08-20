@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -139,6 +140,7 @@ export default function MyBookingsPage() {
                                     <TableHead>Space</TableHead>
                                     <TableHead>Date</TableHead>
                                     <TableHead>Time</TableHead>
+                                    <TableHead>Seats Booked</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Action</TableHead>
                                 </TableRow>
@@ -146,7 +148,7 @@ export default function MyBookingsPage() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">Loading...</TableCell>
+                                        <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
                                     </TableRow>
                                 ) : bookings.length > 0 ? (
                                     bookings.map((booking) => (
@@ -154,6 +156,7 @@ export default function MyBookingsPage() {
                                             <TableCell className="font-medium">{booking.spaceName}</TableCell>
                                             <TableCell>{booking.date}</TableCell>
                                             <TableCell>{booking.startTime} - {booking.endTime}</TableCell>
+                                            <TableCell>{booking.seatCount || 'N/A'}</TableCell>
                                             <TableCell>
                                                 <Badge 
                                                     variant={
@@ -179,7 +182,7 @@ export default function MyBookingsPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
+                                        <TableCell colSpan={6} className="h-24 text-center">
                                             You have no bookings yet.
                                         </TableCell>
                                     </TableRow>
