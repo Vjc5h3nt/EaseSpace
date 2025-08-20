@@ -157,8 +157,8 @@ export default function AdminDashboardPage() {
         toast({
             title: "Error Saving Layout",
             description: error.message,
-            variant: "destructive",
-        });
+                variant: "destructive",
+            });
     }
   };
   
@@ -339,5 +339,6 @@ export default function AdminDashboardPage() {
         </section>
     </div>
   );
+}
 
     
