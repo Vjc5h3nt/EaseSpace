@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -12,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Home } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import React from "react";
 import { Logo } from "@/components/logo";
@@ -73,7 +74,12 @@ export default function UserLoginPage() {
             </div>
         </div>
 
-        <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 md:p-12">
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 md:p-12 relative">
+            <Link href="/" passHref>
+                <Button variant="ghost" size="icon" className="absolute top-4 left-4">
+                    <Home className="h-4 w-4" />
+                </Button>
+            </Link>
             <div className="w-full max-w-md">
                 <div className="mb-8 text-center lg:text-left">
                     <h2 className="text-3xl font-bold text-gray-900">Welcome Back!</h2>
