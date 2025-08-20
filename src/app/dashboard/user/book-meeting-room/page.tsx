@@ -157,8 +157,8 @@ function MeetingRoomBookingComponent() {
                 purpose,
                 participants: participants.split(',').map(p => p.trim()).filter(Boolean),
                 userName: user.fullName,
-                employeeId: user.employeeId,
-                contact: user.mobileNumber,
+                employeeId: user.employeeId || 'N/A',
+                contact: user.mobileNumber || 'N/A',
                 createdAt: serverTimestamp() as Timestamp,
             };
 
@@ -300,4 +300,3 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
-
