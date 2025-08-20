@@ -16,43 +16,41 @@ export default function Home() {
         <span className="ml-2 text-lg font-bold">EaseSpace</span>
       </header>
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-background">
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-background">
           <div className="container px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-1 lg:gap-12">
-              <div className="flex flex-col justify-center space-y-4 text-center">
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
-                    Seamless Space Booking for the Modern Workplace
-                  </h1>
-                  <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl">
-                    Manage meeting rooms and cafeteria seats with ease. Let our AI handle the scheduling, so you can focus on what matters.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-4 min-[400px]:flex-row justify-center">
-                    <Card className="hover:shadow-lg transition-shadow text-left">
-                        <CardContent className="p-6 flex flex-col items-start gap-4">
-                            <h3 className="text-lg font-semibold">Are you a user?</h3>
-                            <p className="text-sm text-muted-foreground">Login to book your space and manage your schedule.</p>
-                            <Button asChild className="mt-auto">
-                                <Link href="/login">User Login <ArrowRight className="ml-2 h-4 w-4" /></Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
-                    <Card className="hover:shadow-lg transition-shadow text-left">
-                        <CardContent className="p-6 flex flex-col items-start gap-4">
-                           <h3 className="text-lg font-semibold">Are you an Admin?</h3>
-                           <p className="text-sm text-muted-foreground">Create and manage your organization's workspace.</p>
-                            <Button asChild variant="outline" className="mt-auto">
-                                <Link href="/signup">Admin Onboarding <ArrowRight className="ml-2 h-4 w-4" /></Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
+            <div className="flex flex-col items-center space-y-4 text-center">
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
+                  Seamless Space Booking for the Modern Workplace
+                </h1>
+                <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl">
+                  Manage meeting rooms and cafeteria seats with ease. Let our AI handle the scheduling, so you can focus on what matters.
+                </p>
+              </div>
+              <div className="flex flex-col gap-4 min-[400px]:flex-row justify-center pt-6">
+                  <Card className="hover:shadow-lg transition-shadow text-left">
+                      <CardContent className="p-6 flex flex-col items-start gap-4">
+                          <h3 className="text-lg font-semibold">Are you a user?</h3>
+                          <p className="text-sm text-muted-foreground">Login to book your space and manage your schedule.</p>
+                          <Button asChild className="mt-auto">
+                              <Link href="/login">User Login <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                          </Button>
+                      </CardContent>
+                  </Card>
+                  <Card className="hover:shadow-lg transition-shadow text-left">
+                      <CardContent className="p-6 flex flex-col items-start gap-4">
+                         <h3 className="text-lg font-semibold">Are you an Admin?</h3>
+                         <p className="text-sm text-muted-foreground">Create and manage your organization's workspace.</p>
+                          <Button asChild variant="outline" className="mt-auto">
+                              <Link href="/signup">Admin Onboarding <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                          </Button>
+                      </CardContent>
+                  </Card>
               </div>
             </div>
           </div>
         </section>
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-card">
+        <section className="w-full py-12 md:py-24 bg-card">
           <div className="container px-4 md:px-6">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
