@@ -1,9 +1,10 @@
+
 "use client";
 
 import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
+import { useEffect, useState, useMemo } from 'react';
+import { doc, getDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,11 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+
+type BookingsForSlot = {
+    [tableId: string]: number; // Stores number of seats booked for a given table
+}
 
 function CafeteriaBookingComponent() {
     const router = useRouter();
@@ -32,6 +38,8 @@ function CafeteriaBookingComponent() {
     const [bookingDate, setBookingDate] = useState<Date | undefined>(new Date());
     const [timeSlot, setTimeSlot] = useState<string>("");
     const [seatCount, setSeatCount] = useState<number>(1);
+    
+    const [bookingsBySlot, setBookingsBySlot] = useState<BookingsForSlot>({});
 
     const [user, setUser] = useState<{uid: string, org_id: string} | null>(null);
 
@@ -73,7 +81,54 @@ function CafeteriaBookingComponent() {
         fetchCafeteria();
     }, [cafeteriaId, router, toast]);
 
+    const availableSeats = useMemo(() => {
+        if (!selectedTable) return 0;
+        const bookedSeats = bookingsBySlot[selectedTable.id] || 0;
+        return 4 - bookedSeats;
+    }, [selectedTable, bookingsBySlot]);
+
+    useEffect(() => {
+        const fetchBookingsForSlot = async () => {
+            if (!cafeteriaId || !bookingDate || !timeSlot) {
+                setBookingsBySlot({});
+                return;
+            }
+
+            const [startTime, endTime] = timeSlot.split(' - ');
+            const q = query(
+                collection(db, "bookings"),
+                where("spaceId", "==", cafeteriaId),
+                where("date", "==", format(bookingDate, "yyyy-MM-dd")),
+                where("startTime", "==", startTime.trim())
+            );
+
+            const querySnapshot = await getDocs(q);
+            const bookingsForSlot: BookingsForSlot = {};
+
+            querySnapshot.forEach(doc => {
+                const booking = doc.data() as Booking;
+                if (booking.tableId) {
+                    bookingsForSlot[booking.tableId] = (bookingsForSlot[booking.tableId] || 0) + (booking.seatCount || 0);
+                }
+            });
+
+            setBookingsBySlot(bookingsForSlot);
+        };
+
+        fetchBookingsForSlot();
+    }, [cafeteriaId, bookingDate, timeSlot]);
+
+
     const handleTableClick = (table: TableLayout) => {
+        const bookedSeats = bookingsBySlot[table.id] || 0;
+        if (bookedSeats >= 4) {
+             toast({
+                title: "Table Fully Booked",
+                description: "All seats at this table are occupied for the selected time slot.",
+                variant: "destructive"
+            });
+            return;
+        }
         setSelectedTable(table);
         setIsBookingDialogOpen(true);
     };
@@ -83,10 +138,13 @@ function CafeteriaBookingComponent() {
             toast({ title: "Booking Error", description: "Please fill all fields.", variant: "destructive" });
             return;
         }
+        
+        if(seatCount > availableSeats) {
+             toast({ title: "Booking Error", description: `Only ${availableSeats} seat(s) are available at this table.`, variant: "destructive" });
+            return;
+        }
 
         try {
-            // Logic to check for conflicts would go here
-            
             const newBooking: Omit<Booking, 'id'> = {
                 org_id: user.org_id,
                 userId: user.uid,
@@ -102,12 +160,17 @@ function CafeteriaBookingComponent() {
             
             await addDoc(collection(db, "bookings"), newBooking);
 
-            toast({ title: "Booking Confirmed!", description: `You have booked ${seatCount} seat(s) at table ${selectedTable.id}.` });
+            toast({ title: "Booking Confirmed!", description: `You have booked ${seatCount} seat(s) at table ${selectedTable.id.split('-')[1]}.` });
+            
+            // Manually update local state to reflect new booking immediately
+            setBookingsBySlot(prev => ({
+                ...prev,
+                [selectedTable.id]: (prev[selectedTable.id] || 0) + seatCount
+            }));
+
             setIsBookingDialogOpen(false);
             setSelectedTable(null);
-            setTimeSlot("");
             setSeatCount(1);
-            setBookingDate(new Date());
 
         } catch (error: any) {
              toast({ title: "Booking Failed", description: error.message, variant: "destructive" });
@@ -124,20 +187,65 @@ function CafeteriaBookingComponent() {
             </Button>
             <header className="mb-6">
                 <h1 className="text-3xl font-bold">{cafeteria.name}</h1>
-                <p className="text-muted-foreground">Click on a table to start booking.</p>
+                <p className="text-muted-foreground">Select a date and time, then click a table to book.</p>
             </header>
+            
+            <div className="flex gap-4 mb-6">
+                <div className="flex-1">
+                    <Label>Date</Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant={"outline"} className="w-full justify-start text-left font-normal">
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {bookingDate ? format(bookingDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={bookingDate} onSelect={setBookingDate} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                <div className="flex-1">
+                    <Label>Time Slot</Label>
+                     <Select onValueChange={setTimeSlot} value={timeSlot}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a time slot" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="11:00 - 12:00">11:00 AM - 12:00 PM</SelectItem>
+                            <SelectItem value="12:00 - 13:00">12:00 PM - 01:00 PM</SelectItem>
+                            <SelectItem value="13:00 - 14:00">01:00 PM - 02:00 PM</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
             <div className="relative w-full h-[600px] rounded-md border bg-slate-100 overflow-hidden">
-                {cafeteria.layout.map((table) => (
-                    <div
-                        key={table.id}
-                        className="absolute w-12 h-12 flex items-center justify-center rounded-lg bg-primary text-primary-foreground select-none group cursor-pointer hover:bg-primary/80 transition-colors"
-                        style={{ left: table.x, top: table.y }}
-                        onClick={() => handleTableClick(table)}
-                    >
-                        <TableIcon className="w-7 h-7" />
-                        <span className="absolute -bottom-5 text-xs text-neutral-700 font-medium">{table.id.split('-')[1] || table.id}</span>
-                    </div>
-                ))}
+                {!timeSlot && <div className="absolute inset-0 flex items-center justify-center bg-gray-500/10 backdrop-blur-sm z-10"><p className="text-lg font-semibold text-neutral-700">Please select a time slot to see table availability.</p></div>}
+                {cafeteria.layout.map((table) => {
+                    const bookedSeats = bookingsBySlot[table.id] || 0;
+                    const isFull = bookedSeats >= 4;
+                    return (
+                        <div
+                            key={table.id}
+                            className={cn(
+                                "absolute w-12 h-12 flex items-center justify-center rounded-lg bg-primary text-primary-foreground select-none group transition-colors",
+                                isFull ? "bg-neutral-400 cursor-not-allowed" : "cursor-pointer hover:bg-primary/80",
+                                !timeSlot && "blur-sm"
+                            )}
+                            style={{ left: table.x, top: table.y }}
+                            onClick={() => timeSlot && handleTableClick(table)}
+                        >
+                            <TableIcon className="w-7 h-7" />
+                            <span className="absolute -bottom-5 text-xs text-neutral-700 font-medium">{table.id.split('-')[1] || table.id}</span>
+                            {!isFull && timeSlot && (
+                                <div className="absolute -top-2 -right-2 text-xs bg-green-500 text-white rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                                    {4 - bookedSeats}
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
             </div>
 
             {selectedTable && (
@@ -145,41 +253,9 @@ function CafeteriaBookingComponent() {
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>Book a Seat at Table {selectedTable.id.split('-')[1] || selectedTable.id}</DialogTitle>
-                            <DialogDescription>Select your desired date, time, and number of seats.</DialogDescription>
+                            <DialogDescription>There are {availableSeats} seat(s) available. Select how many you need.</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
-                            <div>
-                               <Label>Date</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className="w-full justify-start text-left font-normal">
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {bookingDate ? format(bookingDate, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={bookingDate} onSelect={setBookingDate} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                             <div>
-                                <Label>Time Slot</Label>
-                                <Select onValueChange={setTimeSlot} value={timeSlot}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a time slot" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="09:00 - 10:00">09:00 AM - 10:00 AM</SelectItem>
-                                        <SelectItem value="10:00 - 11:00">10:00 AM - 11:00 AM</SelectItem>
-                                        <SelectItem value="11:00 - 12:00">11:00 AM - 12:00 PM</SelectItem>
-                                        <SelectItem value="12:00 - 13:00">12:00 PM - 01:00 PM</SelectItem>
-                                        <SelectItem value="13:00 - 14:00">01:00 PM - 02:00 PM</SelectItem>
-                                        <SelectItem value="14:00 - 15:00">02:00 PM - 03:00 PM</SelectItem>
-                                        <SelectItem value="15:00 - 16:00">03:00 PM - 04:00 PM</SelectItem>
-                                        <SelectItem value="16:00 - 17:00">04:00 PM - 05:00 PM</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
                             <div>
                                 <Label>Number of Seats</Label>
                                 <Select onValueChange={(val) => setSeatCount(parseInt(val))} value={seatCount.toString()}>
@@ -187,10 +263,9 @@ function CafeteriaBookingComponent() {
                                         <SelectValue placeholder="Select number of seats" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="1">1 Seat</SelectItem>
-                                        <SelectItem value="2">2 Seats</SelectItem>
-                                        <SelectItem value="3">3 Seats</SelectItem>
-                                        <SelectItem value="4">4 Seats</SelectItem>
+                                        {[...Array(Math.min(3, availableSeats))].map((_, i) => (
+                                             <SelectItem key={i+1} value={(i+1).toString()}>{i+1} Seat{i > 0 ? 's' : ''}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
