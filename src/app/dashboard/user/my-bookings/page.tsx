@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -13,10 +13,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Building, CalendarCheck, LogOut, User as UserIcon } from 'lucide-react';
+import { Building, CalendarCheck, LogOut, User as UserIcon, ArrowUpDown, Calendar as CalendarIcon, X } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 
 type EnrichedBooking = Booking & { spaceName: string };
+type SortConfig = { key: keyof EnrichedBooking | 'dateTime'; direction: 'ascending' | 'descending' } | null;
 
 export default function MyBookingsPage() {
     const router = useRouter();
@@ -24,6 +28,8 @@ export default function MyBookingsPage() {
     const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(auth.currentUser);
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'dateTime', direction: 'descending' });
+    const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
     const fetchBookings = async (uid: string) => {
         setLoading(true);
@@ -36,7 +42,6 @@ export default function MyBookingsPage() {
                 const bookingData = { id: bookingDoc.id, ...bookingDoc.data() } as Booking;
                 let spaceName = "Unknown Space";
 
-                // Fetch space details to get the name
                 if (bookingData.spaceType && bookingData.spaceId) {
                     const spaceDocRef = doc(db, bookingData.spaceType === 'cafeteria' ? 'cafeterias' : 'meetingRooms', bookingData.spaceId);
                     const spaceDocSnap = await getDoc(spaceDocRef);
@@ -47,9 +52,6 @@ export default function MyBookingsPage() {
                 
                 fetchedBookings.push({ ...bookingData, spaceName });
             }
-
-            // Sort bookings by date in descending order
-            fetchedBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             
             setBookings(fetchedBookings);
         } catch (error) {
@@ -84,14 +86,53 @@ export default function MyBookingsPage() {
         }
     };
     
-      const handleLogout = async () => {
+    const handleLogout = async () => {
         try {
           await auth.signOut();
           router.push("/login");
         } catch (error) {
           console.error("Error signing out:", error);
         }
-      };
+    };
+
+    const requestSort = (key: keyof EnrichedBooking | 'dateTime') => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+    
+    const sortedAndFilteredBookings = useMemo(() => {
+        let sortableItems = [...bookings];
+        
+        if (filterDate) {
+            sortableItems = sortableItems.filter(b => b.date === format(filterDate, "yyyy-MM-dd"));
+        }
+
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                let aValue, bValue;
+                if(sortConfig.key === 'dateTime') {
+                    aValue = new Date(`${a.date}T${a.startTime}`).getTime();
+                    bValue = new Date(`${b.date}T${b.startTime}`).getTime();
+                } else {
+                    aValue = a[sortConfig.key];
+                    bValue = b[sortConfig.key];
+                }
+
+                if (aValue < bValue) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [bookings, sortConfig, filterDate]);
+
 
     return (
         <div className="flex h-screen bg-neutral-50">
@@ -132,14 +173,41 @@ export default function MyBookingsPage() {
                     <CardHeader>
                         <CardTitle>My Bookings</CardTitle>
                         <CardDescription>View your booking history and manage upcoming reservations.</CardDescription>
+                        <div className="flex items-center gap-2 pt-4">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className="w-[280px] justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {filterDate ? format(filterDate, "PPP") : <span>Filter by date...</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={filterDate}
+                                        onSelect={setFilterDate}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            {filterDate && (
+                                <Button variant="ghost" size="icon" onClick={() => setFilterDate(undefined)}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Space</TableHead>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Time</TableHead>
+                                    <TableHead>
+                                        <Button variant="ghost" onClick={() => requestSort('dateTime')}>
+                                            Date & Time
+                                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </TableHead>
                                     <TableHead>Seats Booked</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Action</TableHead>
@@ -150,12 +218,11 @@ export default function MyBookingsPage() {
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
                                     </TableRow>
-                                ) : bookings.length > 0 ? (
-                                    bookings.map((booking) => (
+                                ) : sortedAndFilteredBookings.length > 0 ? (
+                                    sortedAndFilteredBookings.map((booking) => (
                                         <TableRow key={booking.id}>
                                             <TableCell className="font-medium">{booking.spaceName}</TableCell>
-                                            <TableCell>{booking.date}</TableCell>
-                                            <TableCell>{booking.startTime} - {booking.endTime}</TableCell>
+                                            <TableCell>{booking.date} at {booking.startTime}</TableCell>
                                             <TableCell>{booking.seatCount || 'N/A'}</TableCell>
                                             <TableCell>
                                                 <Badge 
@@ -183,7 +250,7 @@ export default function MyBookingsPage() {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-24 text-center">
-                                            You have no bookings yet.
+                                            You have no bookings for the selected criteria.
                                         </TableCell>
                                     </TableRow>
                                 )}
