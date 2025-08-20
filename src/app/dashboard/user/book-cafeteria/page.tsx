@@ -94,12 +94,13 @@ function CafeteriaBookingComponent() {
                 return;
             }
 
-            const [startTime, endTime] = timeSlot.split(' - ');
+            const [startTime] = timeSlot.split(' - ');
             const q = query(
                 collection(db, "bookings"),
                 where("spaceId", "==", cafeteriaId),
                 where("date", "==", format(bookingDate, "yyyy-MM-dd")),
-                where("startTime", "==", startTime.trim())
+                where("startTime", "==", startTime.trim()),
+                where("status", "==", "Confirmed")
             );
 
             const querySnapshot = await getDocs(q);
@@ -107,11 +108,11 @@ function CafeteriaBookingComponent() {
 
             querySnapshot.forEach(doc => {
                 const booking = doc.data() as Booking;
-                if (booking.tableId) {
-                    bookingsForSlot[booking.tableId] = (bookingsForSlot[booking.tableId] || 0) + (booking.seatCount || 0);
+                if (booking.tableId && booking.seatCount) {
+                    bookingsForSlot[booking.tableId] = (bookingsForSlot[booking.tableId] || 0) + booking.seatCount;
                 }
             });
-
+            
             setBookingsBySlot(bookingsForSlot);
         };
 
@@ -201,7 +202,17 @@ function CafeteriaBookingComponent() {
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" selected={bookingDate} onSelect={setBookingDate} initialFocus />
+                             <Calendar 
+                                mode="single" 
+                                selected={bookingDate} 
+                                onSelect={setBookingDate} 
+                                disabled={(date) => {
+                                    const today = new Date();
+                                    today.setHours(0, 0, 0, 0); // Set to start of today for comparison
+                                    return date < today || date > today;
+                                }}
+                                initialFocus 
+                            />
                         </PopoverContent>
                     </Popover>
                 </div>
@@ -258,7 +269,7 @@ function CafeteriaBookingComponent() {
                         <div className="space-y-4 py-4">
                             <div>
                                 <Label>Number of Seats</Label>
-                                <Select onValueChange={(val) => setSeatCount(parseInt(val))} value={seatCount.toString()}>
+                                <Select onValueChange={(val) => setSeatCount(parseInt(val))} value={seatCount > 0 ? seatCount.toString() : ""}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select number of seats" />
                                     </SelectTrigger>
@@ -271,7 +282,7 @@ function CafeteriaBookingComponent() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsBookingDialogOpen(false)}>Cancel</Button>
+                            <Button variant="outline" onClick={() => {setIsBookingDialogOpen(false); setSeatCount(0)}}>Cancel</Button>
                             <Button onClick={handleConfirmBooking} disabled={seatCount === 0}>Confirm Booking</Button>
                         </DialogFooter>
                     </DialogContent>
