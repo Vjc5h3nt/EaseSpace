@@ -40,6 +40,7 @@ function CafeteriaBookingComponent() {
     const [seatCount, setSeatCount] = useState<number>(0);
     
     const [bookingsBySlot, setBookingsBySlot] = useState<BookingsForSlot>({});
+    const [userTotalBookedSeats, setUserTotalBookedSeats] = useState(0);
 
     const [user, setUser] = useState<{uid: string, org_id: string} | null>(null);
 
@@ -81,16 +82,21 @@ function CafeteriaBookingComponent() {
         fetchCafeteria();
     }, [cafeteriaId, router, toast]);
 
-    const availableSeats = useMemo(() => {
+    const availableSeatsAtSelectedTable = useMemo(() => {
         if (!selectedTable) return 0;
         const bookedSeats = bookingsBySlot[selectedTable.id] || 0;
         return 4 - bookedSeats;
     }, [selectedTable, bookingsBySlot]);
+    
+    const seatsUserCanStillBook = useMemo(() => {
+        return Math.max(0, 3 - userTotalBookedSeats);
+    }, [userTotalBookedSeats]);
 
     useEffect(() => {
         const fetchBookingsForSlot = async () => {
-            if (!cafeteriaId || !bookingDate || !timeSlot) {
+            if (!cafeteriaId || !bookingDate || !timeSlot || !user) {
                 setBookingsBySlot({});
+                setUserTotalBookedSeats(0);
                 return;
             }
 
@@ -104,23 +110,37 @@ function CafeteriaBookingComponent() {
             );
 
             const querySnapshot = await getDocs(q);
-            const bookingsForSlot: BookingsForSlot = {};
+            const newBookingsBySlot: BookingsForSlot = {};
+            let totalUserSeats = 0;
 
             querySnapshot.forEach(doc => {
                 const booking = doc.data() as Booking;
                 if (booking.tableId && booking.seatCount) {
-                    bookingsForSlot[booking.tableId] = (bookingsForSlot[booking.tableId] || 0) + booking.seatCount;
+                    newBookingsBySlot[booking.tableId] = (newBookingsBySlot[booking.tableId] || 0) + booking.seatCount;
+                }
+                if (booking.userId === user.uid) {
+                    totalUserSeats += booking.seatCount || 0;
                 }
             });
             
-            setBookingsBySlot(bookingsForSlot);
+            setBookingsBySlot(newBookingsBySlot);
+            setUserTotalBookedSeats(totalUserSeats);
         };
 
         fetchBookingsForSlot();
-    }, [cafeteriaId, bookingDate, timeSlot]);
+    }, [cafeteriaId, bookingDate, timeSlot, user]);
 
 
     const handleTableClick = (table: TableLayout) => {
+        if (seatsUserCanStillBook <= 0) {
+            toast({
+                title: "Booking Limit Reached",
+                description: "You have already booked the maximum of 3 seats for this time slot.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         const bookedSeats = bookingsBySlot[table.id] || 0;
         if (bookedSeats >= 4) {
              toast({
@@ -140,8 +160,13 @@ function CafeteriaBookingComponent() {
             return;
         }
         
-        if(seatCount > availableSeats) {
-             toast({ title: "Booking Error", description: `Only ${availableSeats} seat(s) are available at this table.`, variant: "destructive" });
+        if(seatCount > availableSeatsAtSelectedTable) {
+             toast({ title: "Booking Error", description: `Only ${availableSeatsAtSelectedTable} seat(s) are available at this table.`, variant: "destructive" });
+            return;
+        }
+        
+        if(seatCount > seatsUserCanStillBook) {
+            toast({ title: "Booking Limit Exceeded", description: `You can only book ${seatsUserCanStillBook} more seat(s) for this time slot.`, variant: "destructive" });
             return;
         }
 
@@ -169,6 +194,7 @@ function CafeteriaBookingComponent() {
                 ...prev,
                 [selectedTable.id]: (prev[selectedTable.id] || 0) + seatCount
             }));
+            setUserTotalBookedSeats(prev => prev + seatCount);
 
             setIsBookingDialogOpen(false);
             setSelectedTable(null);
@@ -189,7 +215,7 @@ function CafeteriaBookingComponent() {
             </Button>
             <header className="mb-6">
                 <h1 className="text-3xl font-bold">{cafeteria.name}</h1>
-                <p className="text-muted-foreground">Select a date and time, then click a table to book.</p>
+                <p className="text-muted-foreground">Select a date and time, then click a table to book. You can book a maximum of 3 seats per slot.</p>
             </header>
             
             <div className="flex gap-4 mb-6">
@@ -265,7 +291,10 @@ function CafeteriaBookingComponent() {
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>Book a Seat at Table {selectedTable.id.split('-')[1] || selectedTable.id}</DialogTitle>
-                            <DialogDescription>There are {availableSeats} seat(s) available. Select how many you need.</DialogDescription>
+                            <DialogDescription>
+                                There are {availableSeatsAtSelectedTable} seat(s) available at this table. 
+                                You can book {seatsUserCanStillBook} more seat(s) in this time slot.
+                            </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div>
@@ -275,7 +304,7 @@ function CafeteriaBookingComponent() {
                                         <SelectValue placeholder="Select number of seats" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {[...Array(Math.min(3, availableSeats))].map((_, i) => (
+                                        {[...Array(Math.min(seatsUserCanStillBook, availableSeatsAtSelectedTable))].map((_, i) => (
                                              <SelectItem key={i+1} value={(i+1).toString()}>{i+1} Seat{i > 0 ? 's' : ''}</SelectItem>
                                         ))}
                                     </SelectContent>
