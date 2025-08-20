@@ -4,7 +4,7 @@
 import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
-import { doc, getDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -156,7 +156,8 @@ function CafeteriaBookingComponent() {
                 endTime: timeSlot.split('-')[1].trim(),
                 status: 'Confirmed',
                 tableId: selectedTable.id,
-                seatCount: seatCount
+                seatCount: seatCount,
+                createdAt: serverTimestamp() as any
             };
             
             await addDoc(collection(db, "bookings"), newBooking);

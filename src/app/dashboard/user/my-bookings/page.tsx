@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { Booking, Cafeteria, MeetingRoom } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 
 type EnrichedBooking = Booking & { spaceName: string };
-type SortConfig = { key: keyof EnrichedBooking | 'dateTime'; direction: 'ascending' | 'descending' } | null;
+type SortConfig = { key: keyof EnrichedBooking | 'slotDateTime' | 'createdAt'; direction: 'ascending' | 'descending' } | null;
 
 export default function MyBookingsPage() {
     const router = useRouter();
@@ -28,7 +28,7 @@ export default function MyBookingsPage() {
     const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(auth.currentUser);
-    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'dateTime', direction: 'descending' });
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'slotDateTime', direction: 'descending' });
     const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
     const fetchBookings = async (uid: string) => {
@@ -95,7 +95,7 @@ export default function MyBookingsPage() {
         }
     };
 
-    const requestSort = (key: keyof EnrichedBooking | 'dateTime') => {
+    const requestSort = (key: keyof EnrichedBooking | 'slotDateTime' | 'createdAt') => {
         let direction: 'ascending' | 'descending' = 'ascending';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
             direction = 'descending';
@@ -113,12 +113,16 @@ export default function MyBookingsPage() {
         if (sortConfig !== null) {
             sortableItems.sort((a, b) => {
                 let aValue, bValue;
-                if(sortConfig.key === 'dateTime') {
+
+                if (sortConfig.key === 'slotDateTime') {
                     aValue = new Date(`${a.date}T${a.startTime}`).getTime();
                     bValue = new Date(`${b.date}T${b.startTime}`).getTime();
+                } else if (sortConfig.key === 'createdAt') {
+                    aValue = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
+                    bValue = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
                 } else {
-                    aValue = a[sortConfig.key];
-                    bValue = b[sortConfig.key];
+                    aValue = a[sortConfig.key as keyof EnrichedBooking];
+                    bValue = b[sortConfig.key as keyof EnrichedBooking];
                 }
 
                 if (aValue < bValue) {
@@ -203,8 +207,14 @@ export default function MyBookingsPage() {
                                 <TableRow>
                                     <TableHead>Space</TableHead>
                                     <TableHead>
-                                        <Button variant="ghost" onClick={() => requestSort('dateTime')}>
-                                            Date & Time
+                                        <Button variant="ghost" onClick={() => requestSort('slotDateTime')}>
+                                            Slot Date & Time
+                                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </TableHead>
+                                     <TableHead>
+                                        <Button variant="ghost" onClick={() => requestSort('createdAt')}>
+                                            Booked On
                                             <ArrowUpDown className="ml-2 h-4 w-4" />
                                         </Button>
                                     </TableHead>
@@ -223,6 +233,9 @@ export default function MyBookingsPage() {
                                         <TableRow key={booking.id}>
                                             <TableCell className="font-medium">{booking.spaceName}</TableCell>
                                             <TableCell>{booking.date} at {booking.startTime}</TableCell>
+                                            <TableCell>
+                                                {booking.createdAt instanceof Timestamp ? format(booking.createdAt.toDate(), "PPpp") : 'N/A'}
+                                            </TableCell>
                                             <TableCell>{booking.seatCount || 'N/A'}</TableCell>
                                             <TableCell>
                                                 <Badge 

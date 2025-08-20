@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export interface Organization {
     id: string;
     name: string;
@@ -50,6 +52,7 @@ export interface Booking {
     status: 'Confirmed' | 'Pending' | 'Cancelled' | 'Requires Approval';
     tableId?: string; // For cafeteria bookings
     seatCount?: number; // For cafeteria bookings
+    createdAt: Timestamp;
 }
 
 export interface Analytics {
