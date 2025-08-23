@@ -86,8 +86,25 @@ function MeetingRoomBookingComponent() {
         if (!selectedRoom) return;
 
         const bookingsQuery = query(collection(db, "bookings"), where("spaceId", "==", selectedRoom.id));
-        const unsubscribeBookings = onSnapshot(bookingsQuery, (snapshot) => {
-            const fetchedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EnrichedBooking));
+        const unsubscribeBookings = onSnapshot(bookingsQuery, async (snapshot) => {
+            const userIds = [...new Set(snapshot.docs.map(d => d.data().userId))];
+            const usersMap = new Map<string, string>();
+            if (userIds.length > 0) {
+                 const usersQuery = query(collection(db, 'users'), where('uid', 'in', userIds));
+                 const usersSnap = await getDocs(usersQuery);
+                 usersSnap.forEach(doc => {
+                     const userData = doc.data() as User;
+                     usersMap.set(userData.uid, userData.fullName);
+                 });
+            }
+
+            const fetchedBookings = snapshot.docs.map(doc => {
+                const bookingData = { id: doc.id, ...doc.data() } as Booking;
+                return {
+                    ...bookingData,
+                    userName: usersMap.get(bookingData.userId) || 'A User'
+                }
+            });
             setBookings(fetchedBookings);
         });
 
@@ -419,9 +436,5 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
-
-    
-
-    
 
     
