@@ -93,14 +93,23 @@ function MeetingRoomBookingComponent() {
     }, [selectedRoom]);
 
     const calendarEvents = useMemo((): EventInput[] => {
+        const getColor = (status: Booking['status']) => {
+            switch (status) {
+                case 'Confirmed': return 'rgba(34, 197, 94, 0.8)'; // Opaque Green
+                case 'Requires Approval': return 'rgba(59, 130, 246, 0.8)'; // Opaque Blue
+                case 'Cancelled': return 'rgba(239, 68, 68, 0.7)'; // Light Opaque Red
+                default: return 'rgba(107, 114, 128, 0.8)'; // Gray
+            }
+        };
+
         return bookings.map(booking => ({
             id: booking.id,
             title: booking.purpose || 'Booked',
             start: `${booking.date}T${booking.startTime}`,
             end: `${booking.date}T${booking.endTime}`,
-            backgroundColor: booking.status === 'Confirmed' ? 'hsl(var(--primary))' : booking.status === 'Requires Approval' ? 'hsl(var(--accent-foreground))' : 'hsl(var(--destructive))',
-            borderColor: booking.status === 'Confirmed' ? 'hsl(var(--primary))' : booking.status === 'Requires Approval' ? 'hsl(var(--accent-foreground))' : 'hsl(var(--destructive))',
-            textColor: 'hsl(var(--primary-foreground))',
+            backgroundColor: getColor(booking.status),
+            borderColor: getColor(booking.status),
+            textColor: '#ffffff', // White text for better contrast
             extendedProps: booking
         }));
     }, [bookings]);
@@ -385,5 +394,7 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
+
+    
 
     
