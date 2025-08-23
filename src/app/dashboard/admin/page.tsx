@@ -6,16 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, Tooltip } from 'recharts';
-import { Pencil, Utensils, Building } from "lucide-react";
+import { Pencil, Utensils, Building, PlusCircle } from "lucide-react";
 import type { Booking, Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { auth, db } from "@/lib/firebase";
-import { collection, doc, getDoc, getDocs, query, where, updateDoc, orderBy, limit } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CafeteriaLayoutEditor } from "@/components/cafeteria-layout-editor";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInMinutes, format } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type EnrichedBooking = Booking & { userName: string, spaceName: string };
 
@@ -35,6 +37,14 @@ export default function AdminDashboardPage() {
   // Layout editor state
   const [selectedCafeteria, setSelectedCafeteria] = useState<Cafeteria | null>(null);
   const [currentLayout, setCurrentLayout] = useState<TableLayout[]>([]);
+
+  // Add space dialog states
+  const [isAddCafeDialogOpen, setIsAddCafeDialogOpen] = useState(false);
+  const [newCafeName, setNewCafeName] = useState("");
+  const [isAddRoomDialogOpen, setIsAddRoomDialogOpen] = useState(false);
+  const [newRoomName, setNewRoomName] = useState("");
+  const [newRoomCapacity, setNewRoomCapacity] = useState("");
+  const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
 
    useEffect(() => {
@@ -161,6 +171,44 @@ export default function AdminDashboardPage() {
         });
     }
   };
+
+  const handleAddCafeteria = async () => {
+    if (!newCafeName.trim() || !orgId) return;
+    try {
+        await addDoc(collection(db, "cafeterias"), {
+            name: newCafeName,
+            org_id: orgId,
+            capacity: 0,
+            layout: []
+        });
+        toast({ title: "Cafeteria Added!", description: `${newCafeName} has been created.` });
+        setIsAddCafeDialogOpen(false);
+        setNewCafeName("");
+        fetchDashboardData(orgId);
+    } catch (error: any) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  }
+
+  const handleAddMeetingRoom = async () => {
+    if (!newRoomName.trim() || !newRoomCapacity || !orgId) return;
+    try {
+        await addDoc(collection(db, "meetingRooms"), {
+            name: newRoomName,
+            capacity: parseInt(newRoomCapacity, 10),
+            amenities: newRoomAmenities.split(',').map(a => a.trim()).filter(Boolean),
+            org_id: orgId
+        });
+        toast({ title: "Meeting Room Added!", description: `${newRoomName} has been created.` });
+        setIsAddRoomDialogOpen(false);
+        setNewRoomName("");
+        setNewRoomCapacity("");
+        setNewRoomAmenities("");
+        fetchDashboardData(orgId);
+    } catch (error: any) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  }
   
   if (loading) {
     return <div className="flex justify-center items-center h-full">Loading dashboard...</div>
@@ -203,7 +251,29 @@ export default function AdminDashboardPage() {
                     <CardTitle className="text-xl font-semibold text-neutral-900">Manage Spaces</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <h4 className="font-semibold text-base flex items-center gap-2"><Utensils className="h-5 w-5" /> Cafeterias</h4>
+                    <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-base flex items-center gap-2"><Utensils className="h-5 w-5" /> Cafeterias</h4>
+                        <Dialog open={isAddCafeDialogOpen} onOpenChange={setIsAddCafeDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add Cafeteria</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Add a New Cafeteria</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="cafe-name" className="text-right">Name</Label>
+                                        <Input id="cafe-name" value={newCafeName} onChange={(e) => setNewCafeName(e.target.value)} className="col-span-3" />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                                    <Button onClick={handleAddCafeteria}>Save</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                     <div className="space-y-2">
                         {cafeterias.length > 0 ? cafeterias.map(cafe => (
                         <div key={cafe.id} className="flex items-center justify-between rounded-lg border p-4">
@@ -237,7 +307,37 @@ export default function AdminDashboardPage() {
                         )) : <p className="text-sm text-neutral-600 text-center py-4">No cafeterias found.</p>}
                     </div>
 
-                    <h4 className="font-semibold text-base flex items-center gap-2 mt-6"><Building className="h-5 w-5" /> Meeting Rooms</h4>
+                    <div className="flex items-center justify-between mt-6">
+                        <h4 className="font-semibold text-base flex items-center gap-2"><Building className="h-5 w-5" /> Meeting Rooms</h4>
+                        <Dialog open={isAddRoomDialogOpen} onOpenChange={setIsAddRoomDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add Room</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Add a New Meeting Room</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="room-name" className="text-right">Name</Label>
+                                        <Input id="room-name" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} className="col-span-3" />
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="room-capacity" className="text-right">Capacity</Label>
+                                        <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(e.target.value)} className="col-span-3" />
+                                    </div>
+                                     <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="room-amenities" className="text-right">Amenities</Label>
+                                        <Input id="room-amenities" value={newRoomAmenities} onChange={(e) => setNewRoomAmenities(e.target.value)} placeholder="Comma-separated" className="col-span-3" />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                                    <Button onClick={handleAddMeetingRoom}>Save</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                     <div className="space-y-2">
                         {meetingRooms.length > 0 ? meetingRooms.map(room => (
                         <div key={room.id} className="flex items-center justify-between rounded-lg border p-4">
@@ -341,3 +441,5 @@ export default function AdminDashboardPage() {
   );
 
     
+
+      
