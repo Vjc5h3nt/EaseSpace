@@ -98,13 +98,15 @@ function MeetingRoomBookingComponent() {
                  });
             }
 
-            const fetchedBookings = snapshot.docs.map(doc => {
-                const bookingData = { id: doc.id, ...doc.data() } as Booking;
-                return {
-                    ...bookingData,
-                    userName: usersMap.get(bookingData.userId) || 'A User'
-                }
-            });
+            const fetchedBookings = snapshot.docs
+                .map(doc => {
+                    const bookingData = { id: doc.id, ...doc.data() } as Booking;
+                    return {
+                        ...bookingData,
+                        userName: usersMap.get(bookingData.userId) || 'A User'
+                    }
+                })
+                .filter(booking => booking.status !== 'Cancelled'); // Exclude cancelled bookings from the list
             setBookings(fetchedBookings);
         });
 
@@ -116,7 +118,7 @@ function MeetingRoomBookingComponent() {
             switch (status) {
                 case 'Confirmed': return 'rgba(34, 197, 94, 0.8)';
                 case 'Requires Approval': return 'rgba(59, 130, 246, 0.8)';
-                case 'Cancelled': return 'rgba(239, 68, 68, 0.7)';
+                // Cancelled bookings are filtered out, so no color is needed.
                 default: return 'rgba(107, 114, 128, 0.8)';
             }
         };
@@ -142,7 +144,7 @@ function MeetingRoomBookingComponent() {
         const calendarApi = selectInfo.view.calendar;
         calendarApi.unselect();
         
-        if (selectInfo.view.type === 'dayGridMonth' || selectInfo.allDay) {
+        if (selectInfo.view.type === 'dayGridMonth') {
             toast({ title: "Action Not Allowed", description: "Please select a specific time slot in the week or day view to book.", variant: "destructive" });
             return;
         }
@@ -183,7 +185,8 @@ function MeetingRoomBookingComponent() {
         const newBookingEnd = new Date(`${format(bookingDate, 'yyyy-MM-dd')}T${endTime}`).getTime();
 
         const hasConflict = bookings.some(b => {
-            if (b.status !== 'Confirmed') return false;
+            // Only check for conflicts with Confirmed or Pending bookings
+            if (b.status === 'Cancelled') return false; 
             const existingStart = new Date(`${b.date}T${b.startTime}`).getTime();
             const existingEnd = new Date(`${b.date}T${b.endTime}`).getTime();
             return newBookingStart < existingEnd && newBookingEnd > existingStart;
@@ -242,6 +245,7 @@ function MeetingRoomBookingComponent() {
                 description = `This slot is requested by ${eventToShow.userName || 'a user'} and is pending approval.`;
                 break;
             case 'Cancelled':
+                // This case should no longer be triggered from the calendar view
                 title = "Booking Cancelled";
                 description = "This booking has been cancelled.";
                 break;
