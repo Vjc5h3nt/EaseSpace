@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Calendar as CalendarIcon, Clock, Users, Briefcase, User as UserIcon, Building, Phone, Eye, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { format, differenceInHours } from 'date-fns';
+import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -142,13 +142,13 @@ function MeetingRoomBookingComponent() {
         const calendarApi = selectInfo.view.calendar;
         calendarApi.unselect();
         
-        if(selectInfo.view.type === 'dayGridMonth') {
-            toast({ title: "Action Not Allowed", description: "Please select a time slot in the week or day view to book.", variant: "destructive" });
+        if (selectInfo.view.type === 'dayGridMonth' || selectInfo.allDay) {
+            toast({ title: "Action Not Allowed", description: "Please select a specific time slot in the week or day view to book.", variant: "destructive" });
             return;
         }
 
-        const durationHours = differenceInHours(selectInfo.end, selectInfo.start);
-        if (durationHours > 3) {
+        const durationMinutes = differenceInMinutes(selectInfo.end, selectInfo.start);
+        if (durationMinutes > 180) { // 3 hours = 180 minutes
             toast({ title: "Booking Limit Exceeded", description: "You cannot book a room for more than 3 hours at a time.", variant: "destructive" });
             return;
         }
@@ -436,5 +436,7 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
+
+    
 
     
