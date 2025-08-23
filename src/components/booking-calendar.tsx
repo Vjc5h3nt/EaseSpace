@@ -7,7 +7,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
-import { useToast } from './ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { differenceInHours } from 'date-fns';
 
 interface BookingCalendarProps {
@@ -71,5 +71,3 @@ function renderEventContent(eventInfo: any) {
 }
 
 export default BookingCalendar;
-
-    
