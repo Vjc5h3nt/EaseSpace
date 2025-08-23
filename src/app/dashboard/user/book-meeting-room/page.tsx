@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Calendar as CalendarIcon, Clock, Users, Briefcase, User as UserIcon, Building, Phone, Eye, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { format, parseISO } from 'date-fns';
+import { format, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -98,15 +98,15 @@ function MeetingRoomBookingComponent() {
             title: booking.purpose || 'Booked',
             start: `${booking.date}T${booking.startTime}`,
             end: `${booking.date}T${booking.endTime}`,
-            backgroundColor: booking.status === 'Confirmed' ? 'hsl(var(--primary))' : 'hsl(var(--accent))',
-            borderColor: booking.status === 'Confirmed' ? 'hsl(var(--primary))' : 'hsl(var(--accent))',
-            textColor: booking.status === 'Confirmed' ? 'hsl(var(--primary-foreground))' : 'hsl(var(--accent-foreground))',
+            backgroundColor: booking.status === 'Confirmed' ? 'hsl(var(--primary))' : booking.status === 'Requires Approval' ? 'hsl(var(--accent-foreground))' : 'hsl(var(--destructive))',
+            borderColor: booking.status === 'Confirmed' ? 'hsl(var(--primary))' : booking.status === 'Requires Approval' ? 'hsl(var(--accent-foreground))' : 'hsl(var(--destructive))',
+            textColor: 'hsl(var(--primary-foreground))',
             extendedProps: booking
         }));
     }, [bookings]);
     
-    const timeOptions = Array.from({ length: 11 }, (_, i) => { // 8 AM to 6 PM
-        const hour = i + 8;
+    const timeOptions = Array.from({ length: 13 }, (_, i) => { // 7 AM to 7 PM
+        const hour = i + 7;
         return `${hour.toString().padStart(2, '0')}:00`;
     });
 
@@ -114,6 +114,27 @@ function MeetingRoomBookingComponent() {
         const calendarApi = selectInfo.view.calendar;
         calendarApi.unselect();
         
+        // Prevent booking in month view
+        if(selectInfo.view.type === 'dayGridMonth') {
+            toast({ title: "Action Not Allowed", description: "Please select a time slot in the week or day view to book.", variant: "destructive" });
+            return;
+        }
+
+        // Prevent booking for more than 3 hours
+        const durationHours = differenceInHours(selectInfo.end, selectInfo.start);
+        if (durationHours > 3) {
+            toast({ title: "Booking Limit Exceeded", description: "You cannot book a room for more than 3 hours at a time.", variant: "destructive" });
+            return;
+        }
+
+        // Prevent booking on past dates
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        if(selectInfo.start < today){
+             toast({ title: "Invalid Date", description: "You cannot book a room on a past date.", variant: "destructive" });
+            return;
+        }
+
         setBookingDate(selectInfo.start);
         setStartTime(format(selectInfo.start, 'HH:mm'));
         setEndTime(format(selectInfo.end, 'HH:mm'));
@@ -210,7 +231,7 @@ function MeetingRoomBookingComponent() {
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
-                                            className={cn(selectedRoom?.id === room.id && "hover:bg-primary/80")}
+                                            className={cn("hover:bg-primary/10", selectedRoom?.id === room.id && "hover:bg-primary/80")}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setSelectedRoom(room);
@@ -226,13 +247,15 @@ function MeetingRoomBookingComponent() {
                     </CardContent>
                 </Card>
             </aside>
-            <main className="flex-1 p-6">
+            <main className="flex-1 p-6 overflow-hidden">
                 {selectedRoom ? (
+                    <div className="h-full">
                     <BookingCalendar
                         events={calendarEvents}
                         onDateSelect={handleDateSelect}
                         onEventClick={handleEventClick}
                     />
+                    </div>
                 ) : (
                     <div className="flex h-full items-center justify-center text-muted-foreground">
                         <p>Select a meeting room to view its schedule.</p>
@@ -246,7 +269,7 @@ function MeetingRoomBookingComponent() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Book {selectedRoom?.name}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Please confirm the details for your booking request.
+                            Please confirm the details for your booking request. Bookings cannot exceed 3 hours.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-4 py-4">
@@ -362,3 +385,5 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
+
+    

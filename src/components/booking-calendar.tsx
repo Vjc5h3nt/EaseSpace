@@ -7,6 +7,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
+import { useToast } from './ui/use-toast';
+import { differenceInHours } from 'date-fns';
 
 interface BookingCalendarProps {
     events: EventInput[];
@@ -15,14 +17,25 @@ interface BookingCalendarProps {
 }
 
 const BookingCalendar: React.FC<BookingCalendarProps> = ({ events, onDateSelect, onEventClick }) => {
+    const { toast } = useToast();
+
     return (
-        <div className="h-full w-full">
+        <div className="h-full w-full calendar-container">
+            <style jsx>{`
+                .calendar-container {
+                    position: relative;
+                    height: calc(100vh - 10rem); /* Adjust based on your layout */
+                }
+                .calendar-container :global(.fc) {
+                    height: 100%;
+                }
+            `}</style>
             <FullCalendar
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 headerToolbar={{
                     left: 'prev,next today',
                     center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    right: 'timeGridWeek,timeGridDay,dayGridMonth'
                 }}
                 initialView="timeGridWeek"
                 editable={false}
@@ -33,10 +46,16 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ events, onDateSelect,
                 events={events}
                 select={onDateSelect}
                 eventClick={onEventClick}
+                selectAllow={(selectInfo) => {
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    return selectInfo.start >= today;
+                }}
                 eventContent={renderEventContent}
-                contentHeight="auto"
-                slotMinTime="08:00:00"
+                slotMinTime="07:00:00"
                 slotMaxTime="19:00:00"
+                allDaySlot={false}
+                height="100%"
             />
         </div>
     );
@@ -44,11 +63,13 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ events, onDateSelect,
 
 function renderEventContent(eventInfo: any) {
     return (
-        <div className="p-1">
+        <div className="p-1 overflow-hidden">
             <b>{eventInfo.timeText}</b>
-            <i className="ml-2">{eventInfo.event.title}</i>
+            <i className="ml-2 truncate">{eventInfo.event.title}</i>
         </div>
     )
 }
 
 export default BookingCalendar;
+
+    
