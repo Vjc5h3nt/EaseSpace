@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Utensils, Building, PlusCircle } from "lucide-react";
+import { Pencil, PlusCircle } from "lucide-react";
 import type { Booking, Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { auth, db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc } from "firebase/firestore";
@@ -231,7 +231,7 @@ export default function AdminDashboardPage() {
                 <CardContent className="space-y-6">
                     <div>
                         <div className="flex items-center justify-between mb-4">
-                            <h4 className="font-semibold text-base flex items-center gap-2"><Utensils className="h-5 w-5" /> Cafeterias</h4>
+                            <h4 className="font-semibold text-base">Cafeterias</h4>
                             <Dialog open={isAddCafeDialogOpen} onOpenChange={setIsAddCafeDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add Cafeteria</Button>
@@ -289,7 +289,7 @@ export default function AdminDashboardPage() {
 
                     <div>
                         <div className="flex items-center justify-between mt-6 mb-4">
-                            <h4 className="font-semibold text-base flex items-center gap-2"><Building className="h-5 w-5" /> Meeting Rooms</h4>
+                            <h4 className="font-semibold text-base">Meeting Rooms</h4>
                             <Dialog open={isAddRoomDialogOpen} onOpenChange={setIsAddRoomDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add Room</Button>
@@ -389,6 +389,8 @@ export default function AdminDashboardPage() {
         </section>
     </div>
   );
+
+    
 
     
 
