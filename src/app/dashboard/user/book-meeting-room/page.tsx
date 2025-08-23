@@ -23,13 +23,15 @@ import BookingCalendar from '@/components/booking-calendar';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+type EnrichedBooking = Booking & { userName?: string };
+
 function MeetingRoomBookingComponent() {
     const router = useRouter();
     const { toast } = useToast();
 
     const [rooms, setRooms] = useState<MeetingRoom[]>([]);
     const [selectedRoom, setSelectedRoom] = useState<MeetingRoom | null>(null);
-    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<User | null>(null);
 
@@ -38,7 +40,7 @@ function MeetingRoomBookingComponent() {
     const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
     const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
-    const [eventToShow, setEventToShow] = useState<Booking | null>(null);
+    const [eventToShow, setEventToShow] = useState<EnrichedBooking | null>(null);
 
     // Form State
     const [bookingDate, setBookingDate] = useState<Date | undefined>();
@@ -85,7 +87,7 @@ function MeetingRoomBookingComponent() {
 
         const bookingsQuery = query(collection(db, "bookings"), where("spaceId", "==", selectedRoom.id));
         const unsubscribeBookings = onSnapshot(bookingsQuery, (snapshot) => {
-            const fetchedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+            const fetchedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EnrichedBooking));
             setBookings(fetchedBookings);
         });
 
@@ -95,21 +97,21 @@ function MeetingRoomBookingComponent() {
     const calendarEvents = useMemo((): EventInput[] => {
         const getColor = (status: Booking['status']) => {
             switch (status) {
-                case 'Confirmed': return 'rgba(34, 197, 94, 0.8)'; // Opaque Green
-                case 'Requires Approval': return 'rgba(59, 130, 246, 0.8)'; // Opaque Blue
-                case 'Cancelled': return 'rgba(239, 68, 68, 0.7)'; // Light Opaque Red
-                default: return 'rgba(107, 114, 128, 0.8)'; // Gray
+                case 'Confirmed': return 'rgba(34, 197, 94, 0.8)';
+                case 'Requires Approval': return 'rgba(59, 130, 246, 0.8)';
+                case 'Cancelled': return 'rgba(239, 68, 68, 0.7)';
+                default: return 'rgba(107, 114, 128, 0.8)';
             }
         };
 
         return bookings.map(booking => ({
             id: booking.id,
-            title: booking.purpose || 'Booked',
+            title: `${booking.userName || 'User'}: ${booking.purpose || 'Booking'}`,
             start: `${booking.date}T${booking.startTime}`,
             end: `${booking.date}T${booking.endTime}`,
             backgroundColor: getColor(booking.status),
             borderColor: getColor(booking.status),
-            textColor: '#ffffff', // White text for better contrast
+            textColor: '#ffffff',
             extendedProps: booking
         }));
     }, [bookings]);
@@ -123,20 +125,17 @@ function MeetingRoomBookingComponent() {
         const calendarApi = selectInfo.view.calendar;
         calendarApi.unselect();
         
-        // Prevent booking in month view
         if(selectInfo.view.type === 'dayGridMonth') {
             toast({ title: "Action Not Allowed", description: "Please select a time slot in the week or day view to book.", variant: "destructive" });
             return;
         }
 
-        // Prevent booking for more than 3 hours
         const durationHours = differenceInHours(selectInfo.end, selectInfo.start);
         if (durationHours > 3) {
             toast({ title: "Booking Limit Exceeded", description: "You cannot book a room for more than 3 hours at a time.", variant: "destructive" });
             return;
         }
 
-        // Prevent booking on past dates
         const today = new Date();
         today.setHours(0,0,0,0);
         if(selectInfo.start < today){
@@ -151,7 +150,7 @@ function MeetingRoomBookingComponent() {
     };
 
     const handleEventClick = (clickInfo: EventClickArg) => {
-        const booking = clickInfo.event.extendedProps as Booking;
+        const booking = clickInfo.event.extendedProps as EnrichedBooking;
         setEventToShow(booking);
         setIsInfoDialogOpen(true);
     };
@@ -180,7 +179,7 @@ function MeetingRoomBookingComponent() {
         }
 
         try {
-            const newBooking = {
+            const newBooking: Partial<EnrichedBooking> = {
                 org_id: user.org_id,
                 userId: user.uid,
                 spaceId: selectedRoom.id,
@@ -200,7 +199,6 @@ function MeetingRoomBookingComponent() {
             await addDoc(collection(db, 'bookings'), newBooking);
             toast({ title: "Booking Submitted!", description: "Your request has been sent for approval." });
             setIsBookingDialogOpen(false);
-            // No need to redirect, calendar will update
         } catch (error) {
             console.error(error);
             toast({ title: "Submission Failed", description: "There was an error submitting your booking.", variant: "destructive" });
@@ -210,6 +208,48 @@ function MeetingRoomBookingComponent() {
     };
     
     if (loading || !user) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+
+    const InfoDialogContent = () => {
+        if (!eventToShow) return null;
+
+        let title = "Booking Details";
+        let description = "";
+
+        switch (eventToShow.status) {
+            case 'Confirmed':
+                title = "Slot Booked";
+                description = `This slot is booked by ${eventToShow.userName || 'a user'}.`;
+                break;
+            case 'Requires Approval':
+                title = "Booking Request Pending";
+                description = `This slot is requested by ${eventToShow.userName || 'a user'} and is pending approval.`;
+                break;
+            case 'Cancelled':
+                title = "Booking Cancelled";
+                description = "This booking has been cancelled.";
+                break;
+            default:
+                description = "This time slot has already been requested.";
+        }
+
+        return (
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{title}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {description}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-2 text-sm">
+                    <p><strong>Purpose:</strong> {eventToShow.purpose}</p>
+                    <p><strong>Time:</strong> {eventToShow.startTime} - {eventToShow.endTime}</p>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogAction onClick={() => {setIsInfoDialogOpen(false); setEventToShow(null)}}>OK</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        );
+    };
 
     return (
         <div className="flex h-screen bg-background">
@@ -350,22 +390,7 @@ function MeetingRoomBookingComponent() {
             {/* Info Dialog */}
             {eventToShow && (
                 <AlertDialog open={isInfoDialogOpen} onOpenChange={() => {setIsInfoDialogOpen(false); setEventToShow(null)}}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Booking Details</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This time slot has already been requested.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                         <div className="space-y-2 text-sm">
-                            <p><strong>Purpose:</strong> {eventToShow.purpose}</p>
-                            <p><strong>Time:</strong> {eventToShow.startTime} - {eventToShow.endTime}</p>
-                            <p><strong>Status:</strong> {eventToShow.status}</p>
-                         </div>
-                        <AlertDialogFooter>
-                             <AlertDialogAction onClick={() => {setIsInfoDialogOpen(false); setEventToShow(null)}}>OK</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
+                    <InfoDialogContent />
                 </AlertDialog>
             )}
 
@@ -394,6 +419,8 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
+
+    
 
     
 

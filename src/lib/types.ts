@@ -1,3 +1,4 @@
+
 import type { Timestamp } from "firebase/firestore";
 
 export interface Organization {
@@ -53,6 +54,11 @@ export interface Booking {
     tableId?: string; // For cafeteria bookings
     seatCount?: number; // For cafeteria bookings
     createdAt: Timestamp;
+    purpose?: string;
+    userName?: string;
+    participants?: string[];
+    employeeId?: string;
+    contact?: string;
 }
 
 export interface Analytics {
@@ -65,3 +71,5 @@ export interface Analytics {
     };
     noShowCount: number;
 }
+
+    
