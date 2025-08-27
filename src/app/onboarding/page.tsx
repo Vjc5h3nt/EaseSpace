@@ -30,6 +30,7 @@ export default function OnboardingPage() {
   
   // User and org state
   const [user, setUser] = useState(auth.currentUser);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [orgId, setOrgId] = useState<string | null>(null);
 
   // Input fields for new cafeterias/rooms
@@ -44,7 +45,19 @@ export default function OnboardingPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+        await currentUser.reload(); // Refresh user state to get latest emailVerified status
         setUser(currentUser);
+        setIsEmailVerified(currentUser.emailVerified);
+
+        if (!currentUser.emailVerified) {
+          toast({
+            title: "Verification Required",
+            description: "Please verify your email before proceeding.",
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
+        
         const userDocRef = doc(db, "users", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
@@ -92,8 +105,8 @@ export default function OnboardingPage() {
   };
   
   const finishOnboarding = async () => {
-    if (!orgId) {
-        toast({ title: "Error", description: "Organization ID not found. Please log in again.", variant: 'destructive' });
+    if (!orgId || !isEmailVerified) {
+        toast({ title: "Error", description: "You must verify your email before finishing setup.", variant: 'destructive' });
         return;
     }
 
@@ -109,14 +122,6 @@ export default function OnboardingPage() {
         await addDoc(meetingRoomsCollectionRef, { ...room, org_id: orgId });
       }
       
-      if(user && !user.emailVerified) {
-         await sendEmailVerification(user);
-         toast({
-            title: "Verification Email Sent",
-            description: "Please check your inbox to verify your email address.",
-          });
-      }
-
       toast({
         title: "Onboarding Complete!",
         description: "Your workspace has been configured.",
@@ -164,12 +169,12 @@ export default function OnboardingPage() {
         <CardHeader>
           <CardTitle className="text-2xl font-headline">Workspace Setup</CardTitle>
           <CardDescription>Configure your cafeterias and meeting rooms for your organization.</CardDescription>
-           {user && !user.emailVerified && (
+           {!isEmailVerified && (
              <Alert variant="destructive" className="mt-4">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Email Verification Required</AlertTitle>
                 <AlertDescription>
-                   Please verify your email address to ensure full access to your account features. A verification link will be sent when you finish onboarding.
+                   Your account is not verified. Please check your inbox for a verification link. You cannot complete setup until your email is verified.
                 </AlertDescription>
             </Alert>
           )}
@@ -251,7 +256,7 @@ export default function OnboardingPage() {
             </TabsContent>
           </Tabs>
           <div className="mt-6 flex justify-end">
-            <Button size="lg" onClick={finishOnboarding} disabled={!orgId || (cafeterias.length === 0 && meetingRooms.length === 0)}>Finish Onboarding</Button>
+            <Button size="lg" onClick={finishOnboarding} disabled={!orgId || (cafeterias.length === 0 && meetingRooms.length === 0) || !isEmailVerified}>Finish Onboarding</Button>
           </div>
         </CardContent>
       </Card>

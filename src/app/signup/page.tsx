@@ -16,7 +16,7 @@ import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { doc, setDoc, addDoc, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Home } from "lucide-react";
+import { Loader2, Home, MailCheck } from "lucide-react";
 
 const formSchema = z.object({
   organizationName: z.string().min(1, { message: "Organization name is required" }),
@@ -29,6 +29,7 @@ export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -62,13 +63,16 @@ export default function SignupPage() {
         email: values.adminEmail,
         role: "admin", // Assign admin role
       });
+
+      // 4. Send verification email
+      await sendEmailVerification(user);
       
       toast({
         title: "Account Created!",
-        description: "You can now set up your workspace.",
+        description: "A verification link has been sent to your email.",
       });
-      
-      router.push("/onboarding");
+
+      setIsSubmitted(true); // Show the verification message
 
     } catch (error: any) {
       toast({
@@ -80,6 +84,27 @@ export default function SignupPage() {
       setIsLoading(false);
     }
   };
+
+  if (isSubmitted) {
+    return (
+       <div className="flex items-center justify-center min-h-screen bg-background py-12">
+          <Card className="mx-auto max-w-md w-full text-center">
+             <CardHeader>
+                <MailCheck className="h-12 w-12 mx-auto text-green-500" />
+                <CardTitle className="text-2xl font-headline mt-4">Please Verify Your Email</CardTitle>
+                <CardDescription>
+                  A verification link has been sent to your email address. Please click the link to verify your account before logging in.
+                </CardDescription>
+             </CardHeader>
+             <CardContent>
+                <Button asChild>
+                    <Link href="/login">Back to Login</Link>
+                </Button>
+             </CardContent>
+          </Card>
+       </div>
+    )
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background py-12">
@@ -146,7 +171,7 @@ export default function SignupPage() {
               
               <Button type="submit" className="w-full mt-2" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Account & Set Up Workspace
+                Create Account & Verify Email
               </Button>
             </form>
           </Form>

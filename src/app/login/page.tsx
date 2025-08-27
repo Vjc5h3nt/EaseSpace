@@ -40,14 +40,34 @@ export default function UserLoginPage() {
     setIsLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      toast({ title: "Success", description: "Logged in successfully." });
+      const user = userCredential.user;
 
-      // Check the user's role and redirect accordingly
-      const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
-        router.push("/dashboard/admin");
+      // Check the user's role and verification status
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'admin') {
+          if (!user.emailVerified) {
+            toast({
+              title: "Verification Required",
+              description: "Please verify your email address before logging in.",
+              variant: "destructive",
+            });
+            await auth.signOut(); // Log out the user
+          } else {
+            toast({ title: "Success", description: "Logged in successfully." });
+            router.push("/dashboard/admin");
+          }
+        } else { // It's a 'user'
+            toast({ title: "Success", description: "Logged in successfully." });
+            router.push("/dashboard/user"); 
+        }
       } else {
-        router.push("/dashboard/user"); 
+         toast({
+            title: "Login Failed",
+            description: "User data not found.",
+            variant: "destructive",
+          });
       }
 
     } catch (error: any) {
