@@ -62,6 +62,7 @@ export default function SignupPage() {
         fullName: values.adminFullName,
         email: values.adminEmail,
         role: "admin", // Assign admin role
+        onboardingComplete: false,
       });
 
       // 4. Send verification email

@@ -55,8 +55,12 @@ export default function UserLoginPage() {
             });
             await auth.signOut(); // Log out the user
           } else {
-            toast({ title: "Success", description: "Logged in successfully." });
-            router.push("/dashboard/admin");
+             toast({ title: "Success", description: "Logged in successfully." });
+             if (userData.onboardingComplete) {
+                router.push("/dashboard/admin");
+             } else {
+                router.push("/onboarding");
+             }
           }
         } else { // It's a 'user'
             toast({ title: "Success", description: "Logged in successfully." });

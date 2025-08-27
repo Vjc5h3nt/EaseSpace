@@ -14,6 +14,7 @@ export interface User {
   role: 'admin' | 'user';
   mobileNumber?: string;
   employeeId?: string;
+  onboardingComplete?: boolean;
 }
 
 export interface TableLayout {

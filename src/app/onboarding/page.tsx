@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Trash2, Building, Utensils, AlertTriangle } from "lucide-react";
-import type { Cafeteria, MeetingRoom, TableLayout } from "@/lib/types";
+import type { Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db } from '@/lib/firebase';
 import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
@@ -62,6 +62,10 @@ export default function OnboardingPage() {
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           setOrgId(userDocSnap.data().org_id);
+          // Redirect if already onboarded
+          if (userDocSnap.data().onboardingComplete) {
+              router.push('/dashboard/admin');
+          }
         }
       } else {
         router.push('/login');
@@ -105,7 +109,7 @@ export default function OnboardingPage() {
   };
   
   const finishOnboarding = async () => {
-    if (!orgId || !isEmailVerified) {
+    if (!orgId || !user || !isEmailVerified) {
         toast({ title: "Error", description: "You must verify your email before finishing setup.", variant: 'destructive' });
         return;
     }
@@ -121,6 +125,10 @@ export default function OnboardingPage() {
       for (const room of meetingRooms) {
         await addDoc(meetingRoomsCollectionRef, { ...room, org_id: orgId });
       }
+
+      // Mark onboarding as complete for the user
+      const userDocRef = doc(db, "users", user.uid);
+      await updateDoc(userDocRef, { onboardingComplete: true });
       
       toast({
         title: "Onboarding Complete!",
