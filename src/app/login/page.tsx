@@ -42,36 +42,39 @@ export default function UserLoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Check the user's role and verification status
       const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.role === 'admin') {
-          if (!user.emailVerified) {
-            toast({
-              title: "Verification Required",
-              description: "Please verify your email address before logging in.",
-              variant: "destructive",
-            });
-            await auth.signOut(); // Log out the user
-          } else {
-             toast({ title: "Success", description: "Logged in successfully." });
-             if (userData.onboardingComplete) {
-                router.push("/dashboard/admin");
-             } else {
-                router.push("/onboarding");
-             }
-          }
-        } else { // It's a 'user'
-            toast({ title: "Success", description: "Logged in successfully." });
-            router.push("/dashboard/user"); 
+      if (!userDoc.exists()) {
+         toast({ title: "Login Failed", description: "User data not found.", variant: "destructive" });
+         await auth.signOut();
+         setIsLoading(false);
+         return;
+      }
+      
+      const userData = userDoc.data();
+
+      if (userData.role === 'admin') {
+        if (!user.emailVerified) {
+          toast({ title: "Verification Required", description: "Please verify your email address before logging in.", variant: "destructive" });
+          await auth.signOut();
+        } else {
+           toast({ title: "Success", description: "Logged in successfully." });
+           if (userData.onboardingComplete) {
+              router.push("/dashboard/admin");
+           } else {
+              router.push("/onboarding");
+           }
         }
-      } else {
-         toast({
-            title: "Login Failed",
-            description: "User data not found.",
-            variant: "destructive",
-          });
+      } else { // It's a 'user'
+          if (userData.status === 'pending') {
+              toast({ title: "Approval Pending", description: "Your account is pending approval from the admin.", variant: "destructive"});
+              await auth.signOut();
+          } else if (userData.status === 'rejected') {
+              toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
+              await auth.signOut();
+          } else {
+              toast({ title: "Success", description: "Logged in successfully." });
+              router.push("/dashboard/user"); 
+          }
       }
 
     } catch (error: any) {

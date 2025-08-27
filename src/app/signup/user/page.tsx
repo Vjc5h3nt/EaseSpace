@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -14,21 +14,34 @@ import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Organization } from "@/lib/types";
 
-// This will be expanded later to include domain checks and org assignment
 const formSchema = z.object({
   fullName: z.string().min(1, { message: "Full name is required" }),
   email: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  orgId: z.string({ required_error: "Please select an organization." }),
 });
 
 export default function UserSignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+
+  useEffect(() => {
+    const fetchOrgs = async () => {
+      const orgsCollection = collection(db, "organizations");
+      const orgsSnapshot = await getDocs(orgsCollection);
+      const orgsList = orgsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization));
+      setOrganizations(orgsList);
+    };
+    fetchOrgs();
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -42,27 +55,25 @@ export default function UserSignupPage() {
   const handleSignup = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      // In a real scenario, we'd first check the email domain to find the org_id
-      // For now, we'll create the user without an org_id
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Create the user document in Firestore
-      // The org_id would be dynamically assigned here based on domain
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
-        org_id: "UNKNOWN", // This needs to be replaced with logic to find the org
+        org_id: values.orgId,
         fullName: values.fullName,
         email: values.email,
         role: "user",
+        status: "pending",
       });
 
       toast({
-        title: "Account Created!",
-        description: "You have successfully signed up.",
+        title: "Request Sent!",
+        description: "Your account request has been sent to the organization admin for approval.",
       });
       
-      router.push("/dashboard/user");
+      await auth.signOut();
+      router.push("/login");
 
     } catch (error: any) {
       toast({
@@ -93,6 +104,28 @@ export default function UserSignupPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSignup)} className="grid gap-4">
+              <FormField
+                control={form.control}
+                name="orgId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Organization Name</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your organization" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {organizations.map(org => (
+                          <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="fullName"
@@ -129,7 +162,7 @@ export default function UserSignupPage() {
               
               <Button type="submit" className="w-full mt-2" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign Up
+                Sign Up & Request Access
               </Button>
             </form>
           </Form>

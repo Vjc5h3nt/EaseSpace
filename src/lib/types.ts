@@ -4,6 +4,7 @@ import type { Timestamp } from "firebase/firestore";
 export interface Organization {
     id: string;
     name: string;
+    org_id: string;
 }
 
 export interface User {
@@ -12,6 +13,7 @@ export interface User {
   email: string;
   fullName: string;
   role: 'admin' | 'user';
+  status: 'active' | 'pending' | 'rejected';
   mobileNumber?: string;
   employeeId?: string;
   onboardingComplete?: boolean;
@@ -72,5 +74,3 @@ export interface Analytics {
     };
     noShowCount: number;
 }
-
-    

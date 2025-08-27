@@ -14,7 +14,7 @@ import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
-import { doc, setDoc, addDoc, collection } from "firebase/firestore";
+import { doc, setDoc, addDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home, MailCheck } from "lucide-react";
 
@@ -44,28 +44,44 @@ export default function SignupPage() {
   const handleSignup = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      // 1. Create the organization
+      // 1. Check if organization name already exists
+      const orgQuery = query(collection(db, "organizations"), where("name", "==", values.organizationName));
+      const orgQuerySnapshot = await getDocs(orgQuery);
+      if (!orgQuerySnapshot.empty) {
+        toast({
+          title: "Organization Exists",
+          description: "An organization with this name already exists. Please choose a different name.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Create the organization
       const orgRef = await addDoc(collection(db, "organizations"), {
         name: values.organizationName,
         createdAt: new Date(),
       });
       const org_id = orgRef.id;
+      
+      await setDoc(orgRef, { org_id: org_id }, { merge: true });
 
-      // 2. Create the admin user in Firebase Auth
+      // 3. Create the admin user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, values.adminEmail, values.password);
       const user = userCredential.user;
 
-      // 3. Create the user document in Firestore, linking to the organization
+      // 4. Create the user document in Firestore, linking to the organization
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         org_id: org_id,
         fullName: values.adminFullName,
         email: values.adminEmail,
         role: "admin", // Assign admin role
+        status: 'active', // Admins are active by default
         onboardingComplete: false,
       });
 
-      // 4. Send verification email
+      // 5. Send verification email
       await sendEmailVerification(user);
       
       toast({
