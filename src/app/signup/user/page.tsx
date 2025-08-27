@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
@@ -64,12 +64,16 @@ export default function UserSignupPage() {
         fullName: values.fullName,
         email: values.email,
         role: "user",
-        status: "pending",
+        status: "pending", // User starts as pending, admin must approve.
       });
+      
+      // Send verification email
+      await sendEmailVerification(user);
 
       toast({
         title: "Request Sent!",
-        description: "Your account request has been sent to the organization admin for approval.",
+        description: "Please verify your email, then wait for admin approval to log in.",
+        duration: 7000,
       });
       
       await auth.signOut();

@@ -52,18 +52,21 @@ export default function UserLoginPage() {
       
       const userData = userDoc.data();
 
-      if (userData.role === 'admin') {
-        if (!user.emailVerified) {
-          toast({ title: "Verification Required", description: "Please verify your email address before logging in.", variant: "destructive" });
+      // Email verification check for BOTH admin and user roles
+      if (!user.emailVerified) {
+          toast({ title: "Verification Required", description: "Please verify your email address before logging in. Check your inbox for a verification link.", variant: "destructive", duration: 7000 });
           await auth.signOut();
-        } else {
-           toast({ title: "Success", description: "Logged in successfully." });
-           if (userData.onboardingComplete) {
-              router.push("/dashboard/admin");
-           } else {
-              router.push("/onboarding");
-           }
-        }
+          setIsLoading(false);
+          return;
+      }
+
+      if (userData.role === 'admin') {
+         toast({ title: "Success", description: "Logged in successfully." });
+         if (userData.onboardingComplete) {
+            router.push("/dashboard/admin");
+         } else {
+            router.push("/onboarding");
+         }
       } else { // It's a 'user'
           if (userData.status === 'pending') {
               toast({ title: "Approval Pending", description: "Your account is pending approval from the admin.", variant: "destructive"});
