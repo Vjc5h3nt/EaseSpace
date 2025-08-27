@@ -17,6 +17,7 @@ export interface User {
   mobileNumber?: string;
   employeeId?: string;
   onboardingComplete?: boolean;
+  photoURL?: string;
 }
 
 export interface TableLayout {

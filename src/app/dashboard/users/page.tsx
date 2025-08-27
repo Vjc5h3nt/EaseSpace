@@ -50,7 +50,7 @@ export default function UsersPage() {
         try {
             const userRef = doc(db, 'users', userId);
             await updateDoc(userRef, { status: newStatus });
-            toast({ title: 'Success', description: `User has been ${newStatus}.` });
+            toast({ title: 'Success', description: `User status has been updated.` });
             if (orgId) fetchUsers(orgId); // Refresh users list
         } catch (error) {
             console.error('Error updating user status:', error);
