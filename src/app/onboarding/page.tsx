@@ -81,11 +81,13 @@ export default function OnboardingPage() {
   }, [router, toast]);
   
   const addCafeteria = () => {
-    if (newCafeteriaName.trim()) {
-      const newCafe = { name: newCafeteriaName, layout: [], capacity: 0 };
-      setCafeterias([...cafeterias, newCafe]);
-      setNewCafeteriaName("");
+    if (!newCafeteriaName.trim()) {
+        toast({ title: "Cafeteria name required", description: "Please enter a name for the cafeteria.", variant: "destructive" });
+        return;
     }
+    const newCafe = { name: newCafeteriaName.trim(), layout: [], capacity: 0 };
+    setCafeterias([...cafeterias, newCafe]);
+    setNewCafeteriaName("");
   };
 
   const removeCafeteria = (index: number) => {
@@ -94,29 +96,33 @@ export default function OnboardingPage() {
   
   // Meeting Room Management
   const addMeetingRoom = () => {
-    if (newRoomName.trim() && newRoomCapacity.trim()) {
-      const capacity = parseInt(newRoomCapacity, 10);
-      if (isNaN(capacity) || capacity < 0) {
-        toast({ title: "Invalid Capacity", description: "Please enter a valid number for capacity.", variant: "destructive" });
+    const name = newRoomName.trim();
+    if (!name) {
+        toast({ title: "Meeting room name required", description: "Please enter a name for the meeting room.", variant: "destructive" });
         return;
-      }
-
-      setMeetingRooms([
-        ...meetingRooms,
-        {
-          id: `mr-${Date.now()}`,
-          name: newRoomName,
-          capacity: capacity,
-          amenities: newRoomAmenities.split(",").map((a) => a.trim()).filter(Boolean),
-          image_url: null,
-          floor: null,
-          location: null,
-        },
-      ]);
-      setNewRoomName("");
-      setNewRoomCapacity('');
-      setNewRoomAmenities("");
     }
+    
+    const capacityNum = parseInt(newRoomCapacity, 10);
+    if (isNaN(capacityNum) || capacityNum < 0) {
+      toast({ title: "Invalid Capacity", description: "Please enter a valid, non-negative number for capacity.", variant: "destructive" });
+      return;
+    }
+
+    setMeetingRooms([
+      ...meetingRooms,
+      {
+        id: `mr-${Date.now()}`,
+        name: name,
+        capacity: capacityNum,
+        amenities: newRoomAmenities.split(",").map((a) => a.trim()).filter(Boolean),
+        image_url: null,
+        floor: null,
+        location: null,
+      },
+    ]);
+    setNewRoomName("");
+    setNewRoomCapacity('');
+    setNewRoomAmenities("");
   };
   
   const removeMeetingRoom = (index: number) => {
@@ -130,7 +136,7 @@ export default function OnboardingPage() {
     }
     
     if (cafeterias.length === 0 && meetingRooms.length === 0) {
-      toast({ title: "Error", description: "Please add at least one cafeteria or meeting room.", variant: 'destructive' });
+      toast({ title: "Add a Space", description: "Please add at least one cafeteria or meeting room to proceed.", variant: 'destructive' });
       return;
     }
 
