@@ -48,7 +48,7 @@ export default function UsersPage() {
                     .limit(1)
                     .maybeSingle();
 
-                if (error) {
+                if (error || !user) {
                     console.error("Error fetching user data:", error);
                     toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
                     setLoading(false);
@@ -56,7 +56,7 @@ export default function UsersPage() {
                     return;
                 }
                 
-                if (user && user.org_id) {
+                if (user.org_id) {
                     setOrgId(user.org_id);
                     await fetchUsers(user.org_id);
                 } else {
@@ -71,21 +71,16 @@ export default function UsersPage() {
         };
 
         initializePage();
-    }, []);
-    
-    useEffect(() => {
+        
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
              if (event === 'SIGNED_OUT') {
-                  setOrgId(null);
-                  setUsers([]);
-                  setLoading(false);
                   router.push('/login');
               }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, [router]);
+    }, [router, toast, fetchUsers]);
 
     const handleUserApproval = async (userId: string, newStatus: 'active' | 'rejected') => {
         try {

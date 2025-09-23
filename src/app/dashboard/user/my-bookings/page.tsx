@@ -83,7 +83,7 @@ export default function MyBookingsPage() {
                     .limit(1)
                     .maybeSingle();
 
-                if (error) {
+                if (error || !userData) {
                     console.error("Error fetching user data:", error);
                     toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
                     setLoading(false);
@@ -91,14 +91,9 @@ export default function MyBookingsPage() {
                     return;
                 }
                 
-                if(userData) {
-                    setUser(userData);
-                    await fetchBookings(userData.id);
-                } else {
-                    setLoading(false);
-                    toast({title: "Error", description: "User not found. Please relogin.", variant: "destructive"});
-                    router.push('/login');
-                }
+                setUser(userData);
+                await fetchBookings(userData.id);
+                
             } else {
                 setLoading(false);
                 router.push('/login');
@@ -106,21 +101,16 @@ export default function MyBookingsPage() {
         };
 
         initializePage();
-    }, []);
 
-    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
             if (event === 'SIGNED_OUT') {
-              setUser(null);
-              setBookings([]);
-              setLoading(false);
               router.push('/login');
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [router]);
+      }, [router, toast, fetchBookings]);
 
     const handleCancelBooking = async (bookingId: string) => {
         try {

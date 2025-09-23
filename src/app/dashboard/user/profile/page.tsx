@@ -33,7 +33,7 @@ export default function UserProfilePage() {
             .limit(1)
             .maybeSingle();
 
-        if (error) {
+        if (error || !userData) {
             console.error("Error fetching user data:", error);
             toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
             setLoading(false);
@@ -41,13 +41,9 @@ export default function UserProfilePage() {
             return;
         }
         
-        if (userData) {
-            setUser(userData);
-            setProfilePicUrl(userData.photo_url || '');
-        } else {
-            toast({title: "Error", description: "User not found. Please relogin.", variant: "destructive"});
-            router.push('/login');
-        }
+        setUser(userData);
+        setProfilePicUrl(userData.photo_url || '');
+        
         setLoading(false);
     }, [router, toast]);
 
@@ -64,20 +60,16 @@ export default function UserProfilePage() {
         };
 
         initializePage();
-    }, []);
 
-    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           async (event, session) => {
             if (event === 'SIGNED_OUT') {
-              setUser(null);
-              setLoading(false);
               router.push('/login');
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [router]);
+      }, [router, toast, fetchUserData]);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {

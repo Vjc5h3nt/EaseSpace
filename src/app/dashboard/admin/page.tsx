@@ -121,7 +121,7 @@ export default function AdminDashboardPage() {
           .limit(1)
           .maybeSingle();
 
-        if (error) {
+        if (error || !user) {
           console.error("Error fetching user data:", error);
           toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
           setLoading(false);
@@ -129,7 +129,7 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        if (user && user.org_id) {
+        if (user.org_id) {
           setOrgId(user.org_id);
           await fetchDashboardData(user.org_id);
         } else {
@@ -144,24 +144,16 @@ export default function AdminDashboardPage() {
     };
 
     initializePage();
-  }, []);
 
-  useEffect(() => {
-      const { data: authListener } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-              if (event === 'SIGNED_OUT') {
-                  setOrgId(null);
-                  setCafeterias([]);
-                  setMeetingRooms([]);
-                  setRecentBookings([]);
-                  setStats({ totalBookings: 0, activeUsers: 0, avgDuration: "0h 0m", confirmedBookings: 0, cancelledBookings: 0 });
-                  setLoading(false);
-                  router.push('/login');
-              }
-          }
-      );
-      return () => authListener.subscription.unsubscribe();
-  }, [router]);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+            if (event === 'SIGNED_OUT') {
+                router.push('/login');
+            }
+        }
+    );
+    return () => authListener.subscription.unsubscribe();
+  }, [router, toast, fetchDashboardData]);
 
 
   const handleEditLayout = (cafe: Cafeteria) => {

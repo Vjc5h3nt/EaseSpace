@@ -110,7 +110,7 @@ export default function AnalyticsPage() {
                 .limit(1)
                 .maybeSingle();
 
-              if (error) {
+              if (error || !user) {
                 console.error("Error fetching user data:", error);
                 toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
                 setLoading(false);
@@ -118,7 +118,7 @@ export default function AnalyticsPage() {
                 return;
               }
 
-              if (user && user.org_id) {
+              if (user.org_id) {
                 setOrgId(user.org_id);
                 await fetchAnalyticsData(user.org_id);
               } else {
@@ -133,23 +133,17 @@ export default function AnalyticsPage() {
         };
 
         initializePage();
-    }, []);
-
-    useEffect(() => {
+        
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
              if (event === 'SIGNED_OUT') {
-                  setOrgId(null);
-                  setStats({ totalBookings: 0, utilizationRate: "0%", peakHour: "N/A", popularSpace: "N/A" });
-                  setPeakHoursData([]);
-                  setDailyUsageData([]);
-                  setLoading(false);
                   router.push('/login');
               }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, [router]);
+    }, [router, toast, fetchAnalyticsData]);
+
 
     if (loading) {
       return <div className="flex justify-center items-center h-full">Loading analytics...</div>

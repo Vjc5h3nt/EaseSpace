@@ -89,7 +89,7 @@ export default function ApproveBookingPage() {
                 .limit(1)
                 .maybeSingle();
 
-              if (error) {
+              if (error || !user) {
                 console.error("Error fetching user data:", error);
                 toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
                 setLoading(false);
@@ -97,7 +97,7 @@ export default function ApproveBookingPage() {
                 return;
               }
               
-              if (user && user.org_id) {
+              if (user.org_id) {
                 setOrgId(user.org_id);
                 await fetchBookings(user.org_id);
               } else {
@@ -112,21 +112,16 @@ export default function ApproveBookingPage() {
         };
 
         initializePage();
-    }, []);
-    
-    useEffect(() => {
+        
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
              if (event === 'SIGNED_OUT') {
-                  setOrgId(null);
-                  setBookings([]);
-                  setLoading(false);
                   router.push('/login');
               }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, [router]);
+    }, [router, toast, fetchBookings]);
 
     const handleBookingAction = async (booking: EnrichedBooking, newStatus: 'Confirmed' | 'Cancelled') => {
         if (!orgId) return;

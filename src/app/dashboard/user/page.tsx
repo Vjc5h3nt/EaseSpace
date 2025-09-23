@@ -58,7 +58,7 @@ export default function UserDashboardPage() {
           .limit(1)
           .maybeSingle();
 
-        if (error) {
+        if (error || !userData) {
             console.error("Error fetching user data:", error);
             toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
             setLoading(false);
@@ -66,17 +66,11 @@ export default function UserDashboardPage() {
             return;
         }
         
-        if (userData) {
-          setUser(userData);
-          if (userData.org_id) {
-            await fetchSpaces(userData.org_id);
-          } else {
-            setLoading(false);
-          }
+        setUser(userData);
+        if (userData.org_id) {
+          await fetchSpaces(userData.org_id);
         } else {
           setLoading(false);
-          toast({title: "Error", description: "User not found. Please relogin.", variant: "destructive"});
-          router.push('/login');
         }
       } else {
         setLoading(false);
@@ -85,23 +79,17 @@ export default function UserDashboardPage() {
     };
 
     initializePage();
-  }, []);
-
-  useEffect(() => {
+    
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setCafeterias([]);
-          setMeetingRooms([]);
-          setLoading(false);
           router.push('/login');
         }
       }
     );
 
     return () => authListener.subscription.unsubscribe();
-  }, [router]);
+  }, [router, toast, fetchSpaces]);
   
   const handleLogout = async () => {
     try {

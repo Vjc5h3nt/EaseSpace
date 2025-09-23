@@ -34,22 +34,18 @@ export default function SettingsPage() {
             .limit(1)
             .maybeSingle();
 
-        if (error) {
+        if (error || !userData) {
             toast({ title: 'Error', description: 'Could not fetch your profile data.', variant: 'destructive' });
             router.push('/login');
             setLoading(false);
             return;
         }
 
-        if (userData) {
-            setUser(userData);
-            setDisplayName(userData.full_name || '');
-            setEmail(userData.email || '');
-            setProfilePicUrl(userData.photo_url || '');
-        } else {
-             toast({ title: 'Error', description: 'Could not find your profile data.', variant: 'destructive' });
-             router.push('/login');
-        }
+        setUser(userData);
+        setDisplayName(userData.full_name || '');
+        setEmail(userData.email || '');
+        setProfilePicUrl(userData.photo_url || '');
+        
         setLoading(false);
     }, [toast, router]);
 
@@ -68,18 +64,17 @@ export default function SettingsPage() {
         };
 
         initializePage();
-    }, []);
-
-    useEffect(() => {
+        
         const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
+          (event, session) => {
             if (event === 'SIGNED_OUT') {
                 router.push('/login');
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, [router]);
+    }, [router, fetchUserData]);
+
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {

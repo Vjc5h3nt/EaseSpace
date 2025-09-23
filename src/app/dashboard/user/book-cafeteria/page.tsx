@@ -77,7 +77,7 @@ function CafeteriaBookingComponent() {
                 .limit(1)
                 .maybeSingle();
               
-              if (error) {
+              if (error || !userData) {
                 console.error("Error fetching user data:", error);
                 toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
                 setLoading(false);
@@ -85,14 +85,9 @@ function CafeteriaBookingComponent() {
                 return;
               }
 
-              if (userData) {
-                setUser(userData);
-                await fetchCafeteria(cafeteriaId);
-              } else {
-                setLoading(false);
-                toast({title: "Error", description: "User not found. Please relogin.", variant: "destructive"});
-                router.push('/login');
-              }
+              setUser(userData);
+              await fetchCafeteria(cafeteriaId);
+              
             } else {
               setLoading(false);
               router.push('/login');
@@ -100,19 +95,16 @@ function CafeteriaBookingComponent() {
         };
 
         initializePage();
-    }, [cafeteriaId]);
-    
-    useEffect(() => {
+        
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
             if (event === 'SIGNED_OUT') {
-              setUser(null);
               router.push('/login');
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, [router]);
+    }, [cafeteriaId, router, toast, fetchCafeteria]);
 
     const availableSeatsAtSelectedTable = useMemo(() => {
         if (!selectedTable) return 0;
