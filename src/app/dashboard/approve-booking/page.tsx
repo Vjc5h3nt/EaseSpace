@@ -112,7 +112,7 @@ export default function ApproveBookingPage() {
         };
 
         initializePage();
-    }, [fetchBookings, router, toast]);
+    }, []);
     
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(

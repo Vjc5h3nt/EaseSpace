@@ -144,7 +144,7 @@ export default function AdminDashboardPage() {
     };
 
     initializePage();
-  }, [fetchDashboardData, router, toast]);
+  }, []);
 
   useEffect(() => {
       const { data: authListener } = supabase.auth.onAuthStateChange(

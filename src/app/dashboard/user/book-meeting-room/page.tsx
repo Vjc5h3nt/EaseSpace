@@ -99,7 +99,7 @@ function MeetingRoomBookingComponent() {
         };
 
         initializePage();
-    }, [fetchRooms, router, toast]);
+    }, []);
 
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(

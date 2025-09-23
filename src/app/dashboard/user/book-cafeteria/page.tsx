@@ -100,7 +100,7 @@ function CafeteriaBookingComponent() {
         };
 
         initializePage();
-    }, [cafeteriaId, fetchCafeteria, router, toast]);
+    }, [cafeteriaId]);
     
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(

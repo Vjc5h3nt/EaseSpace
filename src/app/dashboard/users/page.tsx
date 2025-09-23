@@ -71,7 +71,7 @@ export default function UsersPage() {
         };
 
         initializePage();
-    }, [fetchUsers, router, toast]);
+    }, []);
     
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(

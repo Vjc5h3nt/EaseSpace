@@ -133,7 +133,7 @@ export default function AnalyticsPage() {
         };
 
         initializePage();
-    }, [fetchAnalyticsData, router, toast]);
+    }, []);
 
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
