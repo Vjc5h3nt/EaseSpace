@@ -30,6 +30,7 @@ export default function OnboardingPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Input fields for new cafeterias/rooms
   const [newCafeteriaName, setNewCafeteriaName] = useState("");
@@ -87,7 +88,7 @@ export default function OnboardingPage() {
             setUser(userData);
             if (userData.org_id) {
                 setOrgId(userData.org_id);
-                fetchSpaces(userData.org_id);
+                await fetchSpaces(userData.org_id);
             }
             if (userData.onboarding_complete) {
               router.push('/dashboard/admin');
@@ -96,6 +97,7 @@ export default function OnboardingPage() {
         } else {
           router.push('/login');
         }
+        setLoading(false);
       }
     );
 
@@ -246,6 +248,14 @@ export default function OnboardingPage() {
   
   const isLayoutEditorOpen = selectedCafeteria !== null;
   
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background p-4">
+        <p>Loading...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-4xl">
@@ -339,7 +349,7 @@ export default function OnboardingPage() {
             </TabsContent>
           </Tabs>
           <div className="mt-6 flex justify-end">
-            <Button size="lg" onClick={finishOnboarding} disabled={!orgId || (cafeterias.length === 0 && meetingRooms.length === 0) || !isEmailVerified}>Finish Onboarding</Button>
+            <Button size="lg" onClick={finishOnboarding} disabled={loading || !orgId || (cafeterias.length === 0 && meetingRooms.length === 0) || !isEmailVerified}>Finish Onboarding</Button>
           </div>
         </CardContent>
       </Card>
@@ -368,5 +378,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
-    
