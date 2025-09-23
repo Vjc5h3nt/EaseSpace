@@ -62,6 +62,11 @@ function CafeteriaBookingComponent() {
 
     useEffect(() => {
         const initializePage = async () => {
+            if (!cafeteriaId) {
+                router.push('/dashboard/user');
+                return;
+            }
+            
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               const { data: userData, error } = await supabase
@@ -71,9 +76,7 @@ function CafeteriaBookingComponent() {
                 .single();
               if (userData) {
                 setUser(userData);
-                if (cafeteriaId) {
-                    await fetchCafeteria(cafeteriaId);
-                }
+                await fetchCafeteria(cafeteriaId);
               } else {
                 setLoading(false);
                 router.push('/login');
@@ -84,15 +87,13 @@ function CafeteriaBookingComponent() {
             }
         };
 
-        if (cafeteriaId) {
-            initializePage();
-        } else {
-            router.push('/dashboard/user');
-        }
+        initializePage();
         
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-            if (event === 'SIGNED_OUT') {
+            if(event === 'SIGNED_IN') {
+                initializePage();
+            } else if (event === 'SIGNED_OUT') {
               setUser(null);
               router.push('/login');
             }

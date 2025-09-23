@@ -57,8 +57,8 @@ export default function UserProfilePage() {
 
         const { data: authListener } = supabase.auth.onAuthStateChange(
           async (event, session) => {
-            if (event === 'SIGNED_IN' && session?.user) {
-                await fetchUserData(session.user.id);
+            if (event === 'SIGNED_IN') {
+                initializePage();
             } else if (event === 'SIGNED_OUT') {
               setUser(null);
               setLoading(false);

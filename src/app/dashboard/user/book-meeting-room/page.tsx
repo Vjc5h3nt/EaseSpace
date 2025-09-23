@@ -91,19 +91,8 @@ function MeetingRoomBookingComponent() {
 
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-             if (event === 'SIGNED_IN' && session?.user) {
-                  const fetchUserData = async () => {
-                      const { data: user, error } = await supabase
-                          .from('users')
-                          .select('*')
-                          .eq('id', session.user!.id)
-                          .single();
-                      if (user && user.org_id) {
-                          setUser(user);
-                          await fetchRooms(user.org_id);
-                      }
-                  };
-                  fetchUserData();
+             if (event === 'SIGNED_IN') {
+                  initializePage();
               } else if (event === 'SIGNED_OUT') {
                   setUser(null);
                   setRooms([]);

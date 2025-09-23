@@ -76,16 +76,8 @@ export default function UserDashboardPage() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          if (userData && userData.org_id) {
-            setUser(userData);
-            await fetchSpaces(userData.org_id);
-          }
+        if (event === 'SIGNED_IN') {
+          initializePage();
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setCafeterias([]);

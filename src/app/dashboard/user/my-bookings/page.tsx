@@ -98,15 +98,8 @@ export default function MyBookingsPage() {
 
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-            if (event === 'SIGNED_IN' && session?.user) {
-                const fetchUserData = async () => {
-                    const { data: userData } = await supabase.from('users').select('*').eq('id', session.user!.id).single();
-                    if(userData) {
-                        setUser(userData);
-                        await fetchBookings(userData.id);
-                    }
-                }
-                fetchUserData();
+            if (event === 'SIGNED_IN') {
+                initializePage();
             } else if (event === 'SIGNED_OUT') {
               setUser(null);
               setBookings([]);
