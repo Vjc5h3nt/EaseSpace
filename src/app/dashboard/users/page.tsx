@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,20 +11,22 @@ import { PlusCircle, Check, X } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export default function UsersPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [users, setUsers] = useState<User[]>([]);
     const [orgId, setOrgId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchUsers = async (orgId: string) => {
-        if (!orgId) return;
+    const fetchUsers = useCallback(async (currentOrgId: string) => {
+        if (!currentOrgId) return;
         setLoading(true);
         const { data, error } = await supabase
             .from('users')
             .select('*')
-            .eq('org_id', orgId);
+            .eq('org_id', currentOrgId);
 
         if (error) {
             toast({ title: 'Error fetching users', description: error.message, variant: 'destructive' });
@@ -32,31 +34,58 @@ export default function UsersPage() {
             setUsers(data || []);
         }
         setLoading(false);
-    };
+    }, [toast]);
 
     useEffect(() => {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
+        const initializePage = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
-              const { data: user, error } = await supabase
-                .from('users')
-                .select('org_id')
-                .eq('id', session.user.id)
-                .single();
-              if (user && user.org_id) {
-                setOrgId(user.org_id);
-                fetchUsers(user.org_id);
-              } else if (error) {
-                setLoading(false);
-                toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
-              }
+                const { data: user, error } = await supabase
+                    .from('users')
+                    .select('org_id')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                if (user && user.org_id) {
+                    setOrgId(user.org_id);
+                    await fetchUsers(user.org_id);
+                } else {
+                    if (error) toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
+                    setLoading(false);
+                }
             } else {
-              setLoading(false);
+                router.push('/login');
+                setLoading(false);
             }
+        };
+
+        initializePage();
+        
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+             if (event === 'SIGNED_IN' && session?.user) {
+                  const fetchUserData = async () => {
+                      const { data: user, error } = await supabase
+                          .from('users')
+                          .select('org_id')
+                          .eq('id', session.user.id)
+                          .single();
+                      if (user && user.org_id) {
+                          setOrgId(user.org_id);
+                          fetchUsers(user.org_id);
+                      }
+                  };
+                  fetchUserData();
+              } else if (event === 'SIGNED_OUT') {
+                  setOrgId(null);
+                  setUsers([]);
+                  setLoading(false);
+                  router.push('/login');
+              }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [toast]);
+      }, [fetchUsers, toast, router]);
 
     const handleUserApproval = async (userId: string, newStatus: 'active' | 'rejected') => {
         try {
@@ -180,3 +209,5 @@ function UserTable({ title, users, loading, showActions = false, onAction }: Use
         </Card>
     );
 }
+
+    

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { User as UserIcon, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import type { User } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -21,30 +22,56 @@ export default function SettingsPage() {
     const [profilePicUrl, setProfilePicUrl] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [authUser, setAuthUser] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+    
+    const fetchUserData = useCallback(async (currentUserId: string) => {
+        setLoading(true);
+        const { data: userData, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', currentUserId)
+            .single();
+
+        if (userData) {
+            setUser(userData);
+            setDisplayName(userData.full_name || '');
+            setEmail(userData.email || '');
+            setProfilePicUrl(userData.photo_url || '');
+        } else if (error) {
+            toast({ title: 'Error', description: 'Could not fetch your profile data.', variant: 'destructive' });
+            router.push('/login');
+        }
+        setLoading(false);
+    }, [toast, router]);
 
     useEffect(() => {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
+        const initializePage = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
             const currentUser = session?.user;
             setAuthUser(currentUser);
             if (currentUser) {
-                const { data: userData, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('id', currentUser.id)
-                    .single();
+                await fetchUserData(currentUser.id);
+            } else {
+                router.push('/login');
+                setLoading(false);
+            }
+        };
 
-                if (userData) {
-                    setUser(userData);
-                    setDisplayName(userData.full_name || '');
-                    setEmail(userData.email || '');
-                    setProfilePicUrl(userData.photo_url || '');
-                }
+        initializePage();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                setAuthUser(session.user);
+                await fetchUserData(session.user.id);
+            } else if (event === 'SIGNED_OUT') {
+                router.push('/login');
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, []);
+    }, [fetchUserData, router]);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -103,8 +130,12 @@ export default function SettingsPage() {
         }
     };
 
+    if (loading) {
+        return <div className="flex justify-center items-center h-full">Loading settings...</div>;
+    }
+    
     if (!user) {
-        return <div>Loading...</div>;
+        return <div className="flex justify-center items-center h-full">Could not load profile. Please try again.</div>;
     }
 
     return (

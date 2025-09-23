@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import type { Booking, User } from "@/lib/types";
@@ -22,36 +22,15 @@ export default function AnalyticsPage() {
     const [peakHoursData, setPeakHoursData] = useState<{ name: string; value: number }[]>([]);
     const [dailyUsageData, setDailyUsageData] = useState<{ name: string; value: number }[]>([]);
 
-    useEffect(() => {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            if (session?.user) {
-              const { data: user, error } = await supabase
-                .from('users')
-                .select('org_id')
-                .eq('id', session.user.id)
-                .single();
-              if (user && user.org_id) {
-                setOrgId(user.org_id);
-                fetchAnalyticsData(user.org_id);
-              }
-            } else {
-              setLoading(false);
-            }
-          }
-        );
-        return () => authListener.subscription.unsubscribe();
-      }, []);
-
-    const fetchAnalyticsData = async (orgId: string) => {
-        if (!orgId) return;
+    const fetchAnalyticsData = useCallback(async (currentOrgId: string) => {
+        if (!currentOrgId) return;
         setLoading(true);
 
         try {
             const [bookingsRes, cafeteriasRes, meetingRoomsRes] = await Promise.all([
-                supabase.from("bookings").select('*').eq("org_id", orgId),
-                supabase.from("cafeterias").select('id, name, capacity').eq("org_id", orgId),
-                supabase.from("meeting_rooms").select('id, name, capacity').eq("org_id", orgId),
+                supabase.from("bookings").select('*').eq("org_id", currentOrgId),
+                supabase.from("cafeterias").select('id, name, capacity').eq("org_id", currentOrgId),
+                supabase.from("meeting_rooms").select('id, name, capacity').eq("org_id", currentOrgId),
             ]);
 
             if (bookingsRes.error) throw bookingsRes.error;
@@ -115,8 +94,58 @@ export default function AnalyticsPage() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [toast]);
     
+    useEffect(() => {
+        const initializePage = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              const { data: user, error } = await supabase
+                .from('users')
+                .select('org_id')
+                .eq('id', session.user.id)
+                .single();
+              if (user && user.org_id) {
+                setOrgId(user.org_id);
+                await fetchAnalyticsData(user.org_id);
+              } else {
+                setLoading(false);
+                if (error) toast({title: "Error", description: "Could not fetch user data.", variant: "destructive"});
+              }
+            } else {
+              setLoading(false);
+            }
+        };
+
+        initializePage();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+             if (event === 'SIGNED_IN' && session?.user) {
+                  const fetchUserData = async () => {
+                      const { data: user, error } = await supabase
+                          .from('users')
+                          .select('org_id')
+                          .eq('id', session.user.id)
+                          .single();
+                      if (user && user.org_id) {
+                          setOrgId(user.org_id);
+                          fetchAnalyticsData(user.org_id);
+                      }
+                  };
+                  fetchUserData();
+              } else if (event === 'SIGNED_OUT') {
+                  setOrgId(null);
+                  setStats({ totalBookings: 0, utilizationRate: "0%", peakHour: "N/A", popularSpace: "N/A" });
+                  setPeakHoursData([]);
+                  setDailyUsageData([]);
+                  setLoading(false);
+              }
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
+      }, [fetchAnalyticsData, toast]);
+
     if (loading) {
       return <div className="flex justify-center items-center h-full">Loading analytics...</div>
     }

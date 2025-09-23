@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ export default function ApproveBookingPage() {
     const [conflictError, setConflictError] = useState<string | null>(null);
 
 
-    const fetchBookings = async (orgId: string) => {
+    const fetchBookings = useCallback(async (currentOrgId: string) => {
         setLoading(true);
         try {
             const { data: bookingsData, error: bookingsError } = await supabase
@@ -32,7 +32,7 @@ export default function ApproveBookingPage() {
                     *,
                     users (full_name)
                 `)
-                .eq('org_id', orgId)
+                .eq('org_id', currentOrgId)
                 .in('status', ['Requires Approval', 'Confirmed', 'Cancelled']);
 
             if (bookingsError) throw bookingsError;
@@ -60,7 +60,7 @@ export default function ApproveBookingPage() {
                 const booking = b as any;
                 return {
                     ...booking,
-                    user_name: booking.users.full_name || 'Unknown User',
+                    user_name: booking.users?.full_name || 'Unknown User',
                     space_name: spacesMap.get(booking.space_id) || 'Unknown Space'
                 }
             });
@@ -73,11 +73,11 @@ export default function ApproveBookingPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast]);
     
     useEffect(() => {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
+        const initializePage = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               const { data: user, error } = await supabase
                 .from('users')
@@ -86,24 +86,53 @@ export default function ApproveBookingPage() {
                 .single();
               if (user && user.org_id) {
                 setOrgId(user.org_id);
-                fetchBookings(user.org_id);
+                await fetchBookings(user.org_id);
+              } else {
+                setLoading(false);
+                if (error) toast({title: "Error", description: "Could not fetch user data.", variant: "destructive"});
               }
             } else {
               setLoading(false);
             }
+        };
+
+        initializePage();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+             if (event === 'SIGNED_IN' && session?.user) {
+                  const fetchUserData = async () => {
+                      const { data: user, error } = await supabase
+                          .from('users')
+                          .select('org_id')
+                          .eq('id', session.user.id)
+                          .single();
+                      if (user && user.org_id) {
+                          setOrgId(user.org_id);
+                          fetchBookings(user.org_id);
+                      }
+                  };
+                  fetchUserData();
+              } else if (event === 'SIGNED_OUT') {
+                  setOrgId(null);
+                  setBookings([]);
+                  setLoading(false);
+              }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, []);
+      }, [fetchBookings, toast]);
 
     const handleBookingAction = async (booking: EnrichedBooking, newStatus: 'Confirmed' | 'Cancelled') => {
+        if (!orgId) return;
+        
         if (newStatus === 'Cancelled') {
             const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id);
             if (error) {
                 toast({ title: 'Error', description: error.message, variant: 'destructive' });
             } else {
                 toast({ title: 'Success', description: `Booking has been rejected.` });
-                if(orgId) fetchBookings(orgId);
+                fetchBookings(orgId);
             }
             return;
         }
@@ -141,7 +170,7 @@ export default function ApproveBookingPage() {
             if (error) throw error;
 
             toast({ title: 'Success', description: `Booking has been ${newStatus.toLowerCase()}.` });
-            if(orgId) fetchBookings(orgId); // Refresh bookings
+            fetchBookings(orgId); // Refresh bookings
         } catch (error: any) {
             console.error(`Error updating booking:`, error);
             toast({ title: 'Error', description: error.message || 'Failed to update booking status.', variant: 'destructive' });

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -42,91 +42,121 @@ export default function AdminDashboardPage() {
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
 
-   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const { data: user, error } = await supabase
-            .from('users')
-            .select('org_id')
-            .eq('id', session.user.id)
-            .single();
-          if (user && user.org_id) {
-            setOrgId(user.org_id);
-            fetchDashboardData(user.org_id);
-          }
-        } else {
-          setLoading(false);
-        }
-      }
-    );
-    return () => authListener.subscription.unsubscribe();
-  }, []);
+  const fetchDashboardData = useCallback(async (currentOrgId: string) => {
+    if (!currentOrgId) return;
+    setLoading(true);
 
-  const fetchDashboardData = async (orgId: string) => {
-      if (!orgId) return;
-      setLoading(true);
+    try {
+      // Fetch all data in parallel
+      const [cafeteriasRes, meetingRoomsRes, bookingsRes, usersRes] = await Promise.all([
+          supabase.from('cafeterias').select('*').eq('org_id', currentOrgId),
+          supabase.from('meeting_rooms').select('*').eq('org_id', currentOrgId),
+          supabase.from('bookings').select('*').eq('org_id', currentOrgId),
+          supabase.from('users').select('*').eq('org_id', currentOrgId)
+      ]);
 
-      try {
-        // Fetch all data in parallel
-        const [cafeteriasRes, meetingRoomsRes, bookingsRes, usersRes] = await Promise.all([
-            supabase.from('cafeterias').select('*').eq('org_id', orgId),
-            supabase.from('meeting_rooms').select('*').eq('org_id', orgId),
-            supabase.from('bookings').select('*').eq('org_id', orgId),
-            supabase.from('users').select('*').eq('org_id', orgId)
-        ]);
+      if (cafeteriasRes.error) throw cafeteriasRes.error;
+      if (meetingRoomsRes.error) throw meetingRoomsRes.error;
+      if (bookingsRes.error) throw bookingsRes.error;
+      if (usersRes.error) throw usersRes.error;
 
-        if (cafeteriasRes.error) throw cafeteriasRes.error;
-        if (meetingRoomsRes.error) throw meetingRoomsRes.error;
-        if (bookingsRes.error) throw bookingsRes.error;
-        if (usersRes.error) throw usersRes.error;
+      const fetchedCafeterias = cafeteriasRes.data as Cafeteria[];
+      const fetchedMeetingRooms = meetingRoomsRes.data as MeetingRoom[];
+      const allBookings = bookingsRes.data as Booking[];
+      const allUsers = usersRes.data as User[];
 
-        const fetchedCafeterias = cafeteriasRes.data as Cafeteria[];
-        const fetchedMeetingRooms = meetingRoomsRes.data as MeetingRoom[];
-        const allBookings = bookingsRes.data as Booking[];
-        const allUsers = usersRes.data as User[];
+      const usersMap = new Map(allUsers.map(u => [u.id, u.full_name]));
+      const spacesMap = new Map([
+          ...fetchedCafeterias.map(c => [c.id, c.name]),
+          ...fetchedMeetingRooms.map(r => [r.id, r.name])
+      ]);
 
-        const usersMap = new Map(allUsers.map(u => [u.id, u.full_name]));
-        const spacesMap = new Map([
-            ...fetchedCafeterias.map(c => [c.id, c.name]),
-            ...fetchedMeetingRooms.map(r => [r.id, r.name])
-        ]);
+      setCafeterias(fetchedCafeterias);
+      setMeetingRooms(fetchedMeetingRooms);
 
-        setCafeterias(fetchedCafeterias);
-        setMeetingRooms(fetchedMeetingRooms);
+      // Calculate stats
+      const totalBookings = allBookings.length;
+      const confirmedBookings = allBookings.filter(b => b.status === 'Confirmed').length;
+      const cancelledBookings = allBookings.filter(b => b.status === 'Cancelled').length;
+      const activeUsers = new Set(allBookings.map(b => b.user_id)).size;
+      const totalDuration = allBookings.reduce((acc, b) => {
+          if (!b.start_time || !b.end_time || !b.date) return acc;
+          const startTime = new Date(`${b.date}T${b.start_time}`);
+          const endTime = new Date(`${b.date}T${b.end_time}`);
+          return acc + differenceInMinutes(endTime, startTime);
+      }, 0);
+      const avgDurationMinutes = totalBookings > 0 ? totalDuration / totalBookings : 0;
+      const avgDuration = `${Math.floor(avgDurationMinutes / 60)}h ${Math.round(avgDurationMinutes % 60)}m`;
+      setStats({ totalBookings, activeUsers, avgDuration, confirmedBookings, cancelledBookings });
 
-        // Calculate stats
-        const totalBookings = allBookings.length;
-        const confirmedBookings = allBookings.filter(b => b.status === 'Confirmed').length;
-        const cancelledBookings = allBookings.filter(b => b.status === 'Cancelled').length;
-        const activeUsers = new Set(allBookings.map(b => b.user_id)).size;
-        const totalDuration = allBookings.reduce((acc, b) => {
-            if (!b.start_time || !b.end_time || !b.date) return acc;
-            const startTime = new Date(`${b.date}T${b.start_time}`);
-            const endTime = new Date(`${b.date}T${b.end_time}`);
-            return acc + differenceInMinutes(endTime, startTime);
-        }, 0);
-        const avgDurationMinutes = totalBookings > 0 ? totalDuration / totalBookings : 0;
-        const avgDuration = `${Math.floor(avgDurationMinutes / 60)}h ${Math.round(avgDurationMinutes % 60)}m`;
-        setStats({ totalBookings, activeUsers, avgDuration, confirmedBookings, cancelledBookings });
+      // Process recent bookings
+      const sortedBookings = allBookings.sort((a, b) => new Date(`${b.date}T${b.created_at}`).getTime() - new Date(`${a.date}T${a.created_at}`).getTime());
+      const enrichedRecentBookings = sortedBookings.slice(0, 5).map(b => ({
+          ...b,
+          userName: usersMap.get(b.user_id || '') || 'Unknown User',
+          spaceName: spacesMap.get(b.space_id) || 'Unknown Space',
+          seat: b.table_id ? `Table ${b.table_id.split('-')[1]}` : 'N/A'
+      }));
+      setRecentBookings(enrichedRecentBookings);
 
-        // Process recent bookings
-        const sortedBookings = allBookings.sort((a, b) => new Date(`${b.date}T${b.created_at}`).getTime() - new Date(`${a.date}T${a.created_at}`).getTime());
-        const enrichedRecentBookings = sortedBookings.slice(0, 5).map(b => ({
-            ...b,
-            userName: usersMap.get(b.user_id || '') || 'Unknown User',
-            spaceName: spacesMap.get(b.space_id) || 'Unknown Space',
-            seat: b.table_id ? `Table ${b.table_id.split('-')[1]}` : 'N/A'
-        }));
-        setRecentBookings(enrichedRecentBookings);
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+      toast({ title: "Error", description: "Could not load dashboard data.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+}, [toast]);
 
-      } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
-        toast({ title: "Error", description: "Could not load dashboard data.", variant: "destructive" });
-      } finally {
+useEffect(() => {
+  const initializePage = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('org_id')
+        .eq('id', session.user.id)
+        .single();
+      if (user && user.org_id) {
+        setOrgId(user.org_id);
+        await fetchDashboardData(user.org_id);
+      } else {
         setLoading(false);
+        if (error) toast({title: "Error", description: "Could not fetch user data.", variant: "destructive"});
       }
-  }
+    } else {
+      setLoading(false);
+    }
+  };
+
+  initializePage();
+
+  const { data: authListener } = supabase.auth.onAuthStateChange(
+    (event, session) => {
+       if (event === 'SIGNED_IN' && session?.user) {
+            const fetchUserData = async () => {
+                const { data: user, error } = await supabase
+                    .from('users')
+                    .select('org_id')
+                    .eq('id', session.user.id)
+                    .single();
+                if (user && user.org_id) {
+                    setOrgId(user.org_id);
+                    fetchDashboardData(user.org_id);
+                }
+            };
+            fetchUserData();
+        } else if (event === 'SIGNED_OUT') {
+            setOrgId(null);
+            setCafeterias([]);
+            setMeetingRooms([]);
+            setRecentBookings([]);
+            setStats({ totalBookings: 0, activeUsers: 0, avgDuration: "0h 0m", confirmedBookings: 0, cancelledBookings: 0 });
+            setLoading(false);
+        }
+    }
+  );
+  return () => authListener.subscription.unsubscribe();
+}, [fetchDashboardData, toast]);
 
 
   const handleEditLayout = (cafe: Cafeteria) => {
@@ -135,7 +165,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleSaveLayout = async () => {
-    if (!selectedCafeteria) return;
+    if (!selectedCafeteria || !orgId) return;
 
     try {
         const { error } = await supabase
@@ -149,7 +179,7 @@ export default function AdminDashboardPage() {
             title: "Layout Saved!",
             description: `The layout for ${selectedCafeteria.name} has been updated.`,
         });
-        fetchDashboardData(orgId!); // Refresh the data
+        fetchDashboardData(orgId); // Refresh the data
         setSelectedCafeteria(null); // Close dialog implicitly via state change
     } catch (error: any) {
         toast({
@@ -406,5 +436,4 @@ export default function AdminDashboardPage() {
   );
 }
 
-    
     
