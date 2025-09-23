@@ -109,7 +109,10 @@ export default function OnboardingPage() {
         toast({ title: "Cafeteria name required", description: "Please enter a name for the cafeteria.", variant: "destructive" });
         return;
     }
-    if (!orgId) return;
+    if (!orgId) {
+        toast({ title: "Organization ID not found", description: "Please re-login and try again.", variant: "destructive" });
+        return;
+    };
 
     try {
       const { data, error } = await supabase.from('cafeterias').insert({
@@ -145,7 +148,10 @@ export default function OnboardingPage() {
         toast({ title: "Meeting room name required", variant: "destructive" });
         return;
     }
-    if (!orgId) return;
+    if (!orgId) {
+        toast({ title: "Organization ID not found", description: "Please re-login and try again.", variant: "destructive" });
+        return;
+    }
 
     const capacityNum = parseInt(newRoomCapacity, 10);
     if (isNaN(capacityNum) || capacityNum < 0) {
@@ -362,3 +368,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+    
