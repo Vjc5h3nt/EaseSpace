@@ -73,12 +73,22 @@ function MeetingRoomBookingComponent() {
                 .from('users')
                 .select('*')
                 .eq('id', currentUser.id)
-                .single();
+                .limit(1)
+                .maybeSingle();
+
+              if (error) {
+                console.error("Error fetching user data:", error);
+                toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
+                setLoading(false);
+                router.push('/login');
+                return;
+              }
+              
               if (userData && userData.org_id) {
                 setUser(userData);
                 await fetchRooms(userData.org_id);
               } else {
-                if (error) console.error("Error fetching user data:", error);
+                toast({title: "Error", description: "User or organization not found. Please relogin.", variant: "destructive"});
                 setLoading(false);
                 router.push('/login');
               }
@@ -89,7 +99,7 @@ function MeetingRoomBookingComponent() {
         };
 
         initializePage();
-    }, [fetchRooms, router]);
+    }, [fetchRooms, router, toast]);
 
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(

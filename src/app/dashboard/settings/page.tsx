@@ -31,16 +31,24 @@ export default function SettingsPage() {
             .from('users')
             .select('*')
             .eq('id', currentUserId)
-            .single();
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            toast({ title: 'Error', description: 'Could not fetch your profile data.', variant: 'destructive' });
+            router.push('/login');
+            setLoading(false);
+            return;
+        }
 
         if (userData) {
             setUser(userData);
             setDisplayName(userData.full_name || '');
             setEmail(userData.email || '');
             setProfilePicUrl(userData.photo_url || '');
-        } else if (error) {
-            toast({ title: 'Error', description: 'Could not fetch your profile data.', variant: 'destructive' });
-            router.push('/login');
+        } else {
+             toast({ title: 'Error', description: 'Could not find your profile data.', variant: 'destructive' });
+             router.push('/login');
         }
         setLoading(false);
     }, [toast, router]);

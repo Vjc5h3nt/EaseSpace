@@ -55,7 +55,16 @@ export default function UserDashboardPage() {
           .from('users')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+            console.error("Error fetching user data:", error);
+            toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
+            setLoading(false);
+            router.push('/login');
+            return;
+        }
         
         if (userData) {
           setUser(userData);
@@ -65,8 +74,8 @@ export default function UserDashboardPage() {
             setLoading(false);
           }
         } else {
-          if (error) console.error("Error fetching user data:", error);
           setLoading(false);
+          toast({title: "Error", description: "User not found. Please relogin.", variant: "destructive"});
           router.push('/login');
         }
       } else {
@@ -76,7 +85,7 @@ export default function UserDashboardPage() {
     };
 
     initializePage();
-  }, [fetchSpaces, router]);
+  }, [fetchSpaces, router, toast]);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(

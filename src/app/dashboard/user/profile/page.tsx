@@ -30,17 +30,26 @@ export default function UserProfilePage() {
             .from('users')
             .select('*')
             .eq('id', userId)
-            .single();
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error("Error fetching user data:", error);
+            toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
+            setLoading(false);
+            router.push('/login');
+            return;
+        }
         
         if (userData) {
             setUser(userData);
             setProfilePicUrl(userData.photo_url || '');
         } else {
-            if (error) console.error("Error fetching user data:", error);
+            toast({title: "Error", description: "User not found. Please relogin.", variant: "destructive"});
             router.push('/login');
         }
         setLoading(false);
-    }, [router]);
+    }, [router, toast]);
 
     useEffect(() => {
         const initializePage = async () => {

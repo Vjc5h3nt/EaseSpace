@@ -107,13 +107,23 @@ export default function AnalyticsPage() {
                 .from('users')
                 .select('org_id')
                 .eq('id', session.user.id)
-                .single();
+                .limit(1)
+                .maybeSingle();
+
+              if (error) {
+                console.error("Error fetching user data:", error);
+                toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
+                setLoading(false);
+                router.push('/login');
+                return;
+              }
+
               if (user && user.org_id) {
                 setOrgId(user.org_id);
                 await fetchAnalyticsData(user.org_id);
               } else {
                 setLoading(false);
-                if (error) toast({title: "Error", description: "Could not fetch user data.", variant: "destructive"});
+                toast({title: "Error", description: "User organization not found. Please relogin.", variant: "destructive"});
                 router.push('/login');
               }
             } else {

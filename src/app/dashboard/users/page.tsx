@@ -45,13 +45,22 @@ export default function UsersPage() {
                     .from('users')
                     .select('org_id')
                     .eq('id', session.user.id)
-                    .single();
+                    .limit(1)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error("Error fetching user data:", error);
+                    toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
+                    setLoading(false);
+                    router.push('/login');
+                    return;
+                }
                 
                 if (user && user.org_id) {
                     setOrgId(user.org_id);
                     await fetchUsers(user.org_id);
                 } else {
-                    if (error) toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
+                    toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
                     setLoading(false);
                     router.push('/login');
                 }
