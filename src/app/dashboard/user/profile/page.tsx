@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/componentsui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon, Upload, ArrowLeft, Building, CalendarCheck, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -48,28 +48,37 @@ export default function UserProfilePage() {
     }, [router, toast]);
 
     useEffect(() => {
+        let isMounted = true;
         const initializePage = async () => {
             setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
-                await fetchUserData(session.user.id);
+                if (isMounted) {
+                    await fetchUserData(session.user.id);
+                }
             } else {
-                setLoading(false);
-                router.push('/login');
+                if (isMounted) {
+                    setLoading(false);
+                    router.push('/login');
+                }
             }
         };
 
         initializePage();
-
+        
         const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            if (event === 'SIGNED_OUT') {
-              router.push('/login');
-            }
+          (event, session) => {
+             if (event === 'SIGNED_OUT') {
+                  router.push('/login');
+              }
           }
         );
-        return () => authListener.subscription.unsubscribe();
-      }, [router, toast, fetchUserData]);
+
+        return () => {
+            isMounted = false;
+            authListener.subscription.unsubscribe();
+        };
+      }, [router, fetchUserData]);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -207,5 +216,3 @@ export default function UserProfilePage() {
         </div>
     );
 }
-
-    

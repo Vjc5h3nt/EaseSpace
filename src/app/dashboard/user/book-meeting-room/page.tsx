@@ -14,7 +14,7 @@ import { format, differenceInMinutes, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/componentsui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import BookingCalendar from '@/components/booking-calendar';
@@ -63,54 +63,6 @@ function MeetingRoomBookingComponent() {
         setLoading(false);
     }, [toast]);
 
-    useEffect(() => {
-        const initializePage = async () => {
-            setLoading(true);
-            const { data: { session } } = await supabase.auth.getSession();
-            const currentUser = session?.user;
-            if (currentUser) {
-              const { data: userData, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', currentUser.id)
-                .limit(1)
-                .maybeSingle();
-
-              if (error || !userData) {
-                console.error("Error fetching user data:", error);
-                toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
-                setLoading(false);
-                router.push('/login');
-                return;
-              }
-              
-              if (userData.org_id) {
-                setUser(userData);
-                await fetchRooms(userData.org_id);
-              } else {
-                toast({title: "Error", description: "User or organization not found. Please relogin.", variant: "destructive"});
-                setLoading(false);
-                router.push('/login');
-              }
-            } else {
-              setLoading(false);
-              router.push('/login');
-            }
-        };
-
-        initializePage();
-        
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-             if (event === 'SIGNED_OUT') {
-                  router.push('/login');
-              }
-          }
-        );
-        return () => authListener.subscription.unsubscribe();
-    }, [router, toast, fetchRooms]);
-
-
     const fetchBookingsAndUsers = useCallback(async () => {
         if (!selectedRoom) return;
 
@@ -147,27 +99,74 @@ function MeetingRoomBookingComponent() {
     }, [selectedRoom]);
 
     useEffect(() => {
-        fetchBookingsAndUsers();
-    
-        if (!selectedRoom) return;
-    
-        const channel = supabase.channel(`bookings-room-${selectedRoom.id}`)
+        const initializePage = async () => {
+            setLoading(true);
+            const { data: { session } } = await supabase.auth.getSession();
+            const currentUser = session?.user;
+            if (currentUser) {
+              const { data: userData, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', currentUser.id)
+                .limit(1)
+                .maybeSingle();
+
+              if (error || !userData) {
+                console.error("Error fetching user data:", error);
+                toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
+                setLoading(false);
+                router.push('/login');
+                return;
+              }
+              
+              if (userData.org_id) {
+                setUser(userData);
+                await fetchRooms(userData.org_id);
+              } else {
+                toast({title: "Error", description: "User or organization not found. Please relogin.", variant: "destructive"});
+                setLoading(false);
+                router.push('/login');
+              }
+            } else {
+              setLoading(false);
+              router.push('/login');
+            }
+        };
+
+        initializePage();
+    }, [router, toast, fetchRooms]);
+
+    useEffect(() => {
+        const channel = supabase.channel(`bookings-room-${selectedRoom?.id}`)
           .on('postgres_changes', {
             event: '*',
             schema: 'public',
             table: 'bookings',
-            filter: `space_id=eq.${selectedRoom.id}`
+            filter: `space_id=eq.${selectedRoom?.id}`
           }, (payload) => {
             console.log('Change received!', payload)
             // Refetch all bookings for simplicity
             fetchBookingsAndUsers();
           })
           .subscribe();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+             if (event === 'SIGNED_OUT') {
+                  router.push('/login');
+              }
+          }
+        );
     
         return () => {
           supabase.removeChannel(channel);
+          authListener.subscription.unsubscribe();
         };
-      }, [selectedRoom, fetchBookingsAndUsers]);
+    }, [router, selectedRoom?.id, fetchBookingsAndUsers]);
+
+    useEffect(() => {
+        fetchBookingsAndUsers();
+    }, [selectedRoom, fetchBookingsAndUsers]);
 
 
     const calendarEvents = useMemo((): EventInput[] => {
