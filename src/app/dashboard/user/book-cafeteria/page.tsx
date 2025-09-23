@@ -83,12 +83,16 @@ function CafeteriaBookingComponent() {
                 router.push('/login');
                 return;
               }
-              
+
               if (userData) {
                 setUser(userData);
-                await fetchCafeteria(cafeteriaId);
+                fetchCafeteria(cafeteriaId);
+              } else if (!user) {
+                setLoading(true);
               } else {
-                  setLoading(true);
+                toast({title: "Error", description: "User not found. Please relogin.", variant: "destructive"});
+                setLoading(false);
+                router.push('/login');
               }
               
             } else {
@@ -144,14 +148,16 @@ function CafeteriaBookingComponent() {
             const newBookingsBySlot: BookingsForSlot = {};
             let totalUserSeats = 0;
 
-            data.forEach(booking => {
-                if (booking.table_id && booking.seat_count) {
-                    newBookingsBySlot[booking.table_id] = (newBookingsBySlot[booking.table_id] || 0) + booking.seat_count;
-                }
-                if (booking.user_id === user.id) {
-                    totalUserSeats += booking.seat_count || 0;
-                }
-            });
+            if (data) {
+                data.forEach(booking => {
+                    if (booking.table_id && booking.seat_count) {
+                        newBookingsBySlot[booking.table_id] = (newBookingsBySlot[booking.table_id] || 0) + booking.seat_count;
+                    }
+                    if (booking.user_id === user.id) {
+                        totalUserSeats += booking.seat_count || 0;
+                    }
+                });
+            }
             
             setBookingsBySlot(newBookingsBySlot);
             setUserTotalBookedSeats(totalUserSeats);
@@ -356,4 +362,8 @@ function CafeteriaBookingComponent() {
 
 export default function CafeteriaBookingPage() {
     return (
-        <Suspense fallback
+        <Suspense fallback={<div className="flex justify-center items-center h-screen">Loading...</div>}>
+            <CafeteriaBookingComponent />
+        </Suspense>
+    );
+}
