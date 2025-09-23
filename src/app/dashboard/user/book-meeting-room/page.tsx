@@ -48,32 +48,7 @@ function MeetingRoomBookingComponent() {
     const [participants, setParticipants] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-
-    useEffect(() => {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            const currentUser = session?.user;
-            if (currentUser) {
-              const { data: userData, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', currentUser.id)
-                .single();
-              if (userData) {
-                setUser(userData);
-                fetchRooms(userData.org_id!);
-              } else {
-                router.push('/login');
-              }
-            } else {
-              router.push('/login');
-            }
-          }
-        );
-        return () => authListener.subscription.unsubscribe();
-      }, [router]);
-
-    const fetchRooms = async (orgId: string) => {
+    const fetchRooms = useCallback(async (orgId: string) => {
         setLoading(true);
         const { data, error } = await supabase.from('meeting_rooms').select('*').eq('org_id', orgId);
         if (error) {
@@ -86,7 +61,61 @@ function MeetingRoomBookingComponent() {
             }
         }
         setLoading(false);
-    };
+    }, [toast]);
+
+    useEffect(() => {
+        const initializePage = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const currentUser = session?.user;
+            if (currentUser) {
+              const { data: userData, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+              if (userData && userData.org_id) {
+                setUser(userData);
+                await fetchRooms(userData.org_id);
+              } else {
+                if (error) console.error("Error fetching user data:", error);
+                setLoading(false);
+                router.push('/login');
+              }
+            } else {
+              setLoading(false);
+              router.push('/login');
+            }
+        };
+
+        initializePage();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+             if (event === 'SIGNED_IN' && session?.user) {
+                  const fetchUserData = async () => {
+                      const { data: user, error } = await supabase
+                          .from('users')
+                          .select('*')
+                          .eq('id', session.user!.id)
+                          .single();
+                      if (user && user.org_id) {
+                          setUser(user);
+                          await fetchRooms(user.org_id);
+                      }
+                  };
+                  fetchUserData();
+              } else if (event === 'SIGNED_OUT') {
+                  setUser(null);
+                  setRooms([]);
+                  setSelectedRoom(null);
+                  setBookings([]);
+                  setLoading(false);
+                  router.push('/login');
+              }
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
+      }, [router, fetchRooms, toast]);
 
     const fetchBookingsAndUsers = useCallback(async () => {
         if (!selectedRoom) return;
@@ -472,5 +501,3 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
-
-    

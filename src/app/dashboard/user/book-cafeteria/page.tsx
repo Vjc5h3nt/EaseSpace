@@ -3,7 +3,7 @@
 
 import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Cafeteria, TableLayout, Booking, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -42,9 +42,27 @@ function CafeteriaBookingComponent() {
 
     const [user, setUser] = useState<User | null>(null);
 
+    const fetchCafeteria = useCallback(async (id: string) => {
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('cafeterias')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error || !data) {
+            toast({ title: "Error", description: "Cafeteria not found.", variant: "destructive" });
+            router.push('/dashboard/user');
+        } else {
+            setCafeteria(data as Cafeteria);
+        }
+        setLoading(false);
+    }, [router, toast]);
+
+
     useEffect(() => {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
+        const initializePage = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               const { data: userData, error } = await supabase
                 .from('users')
@@ -53,40 +71,35 @@ function CafeteriaBookingComponent() {
                 .single();
               if (userData) {
                 setUser(userData);
+                if (cafeteriaId) {
+                    await fetchCafeteria(cafeteriaId);
+                }
+              } else {
+                setLoading(false);
+                router.push('/login');
               }
             } else {
+              setLoading(false);
+              router.push('/login');
+            }
+        };
+
+        if (cafeteriaId) {
+            initializePage();
+        } else {
+            router.push('/dashboard/user');
+        }
+        
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            if (event === 'SIGNED_OUT') {
+              setUser(null);
               router.push('/login');
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, [router]);
-
-    useEffect(() => {
-        if (!cafeteriaId) {
-            router.push('/dashboard/user');
-            return;
-        }
-
-        const fetchCafeteria = async () => {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from('cafeterias')
-                .select('*')
-                .eq('id', cafeteriaId)
-                .single();
-
-            if (error || !data) {
-                toast({ title: "Error", description: "Cafeteria not found.", variant: "destructive" });
-                router.push('/dashboard/user');
-            } else {
-                setCafeteria(data as Cafeteria);
-            }
-            setLoading(false);
-        };
-
-        fetchCafeteria();
-    }, [cafeteriaId, router, toast]);
+    }, [router, cafeteriaId, fetchCafeteria]);
 
     const availableSeatsAtSelectedTable = useMemo(() => {
         if (!selectedTable) return 0;
@@ -340,5 +353,3 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
-
-    

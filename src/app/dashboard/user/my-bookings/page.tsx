@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import type { Booking, Cafeteria, MeetingRoom } from '@/lib/types';
+import type { Booking, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,11 +25,11 @@ export default function MyBookingsPage() {
     const { toast } = useToast();
     const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'slotDateTime', direction: 'descending' });
     const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
-    const fetchBookings = async (uid: string) => {
+    const fetchBookings = useCallback(async (uid: string) => {
         setLoading(true);
         try {
             const { data: bookingsData, error } = await supabase
@@ -40,7 +40,6 @@ export default function MyBookingsPage() {
             if (error) throw error;
             if (!bookingsData) return;
 
-            const spaceIds = [...new Set(bookingsData.map(b => b.space_id))];
             const cafeIds = bookingsData.filter(b => b.space_type === 'cafeteria').map(b => b.space_id);
             const roomIds = bookingsData.filter(b => b.space_type === 'meetingRoom').map(b => b.space_id);
             
@@ -70,21 +69,54 @@ export default function MyBookingsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast]);
     
     useEffect(() => {
+        const initializePage = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const { data: userData, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+                if(userData) {
+                    setUser(userData);
+                    await fetchBookings(userData.id);
+                } else {
+                    if (error) console.error(error);
+                    setLoading(false);
+                    router.push('/login');
+                }
+            } else {
+                setLoading(false);
+                router.push('/login');
+            }
+        };
+
+        initializePage();
+
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-            if (session?.user) {
-              setUser(session.user);
-              fetchBookings(session.user.id);
-            } else {
+            if (event === 'SIGNED_IN' && session?.user) {
+                const fetchUserData = async () => {
+                    const { data: userData } = await supabase.from('users').select('*').eq('id', session.user!.id).single();
+                    if(userData) {
+                        setUser(userData);
+                        await fetchBookings(userData.id);
+                    }
+                }
+                fetchUserData();
+            } else if (event === 'SIGNED_OUT') {
+              setUser(null);
+              setBookings([]);
+              setLoading(false);
               router.push('/login');
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [router]);
+      }, [router, fetchBookings, toast]);
 
     const handleCancelBooking = async (bookingId: string) => {
         try {
@@ -297,5 +329,3 @@ export default function MyBookingsPage() {
         </div>
     );
 }
-
-    

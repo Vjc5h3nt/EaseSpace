@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { User, Cafeteria, MeetingRoom } from "@/lib/types";
@@ -18,36 +18,7 @@ export default function UserDashboardPage() {
   const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const { data: userData, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (userData) {
-            setUser(userData);
-            if (userData.org_id) {
-              fetchSpaces(userData.org_id);
-            } else {
-              setLoading(false);
-            }
-          } else {
-            console.log("No such user document!");
-            router.push('/login');
-          }
-        } else {
-          router.push('/login');
-        }
-      }
-    );
-    return () => authListener.subscription.unsubscribe();
-  }, [router]);
-
-  const fetchSpaces = async (org_id: string) => {
+  const fetchSpaces = useCallback(async (org_id: string) => {
     setLoading(true);
     try {
         const { data: cafeteriasData, error: cafeteriasError } = await supabase
@@ -71,7 +42,62 @@ export default function UserDashboardPage() {
     } finally {
         setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const initializePage = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (userData) {
+          setUser(userData);
+          if (userData.org_id) {
+            await fetchSpaces(userData.org_id);
+          } else {
+            setLoading(false);
+          }
+        } else {
+          console.log("No such user document!");
+          setLoading(false);
+          router.push('/login');
+        }
+      } else {
+        setLoading(false);
+        router.push('/login');
+      }
+    };
+
+    initializePage();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          if (userData && userData.org_id) {
+            setUser(userData);
+            await fetchSpaces(userData.org_id);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setCafeterias([]);
+          setMeetingRooms([]);
+          setLoading(false);
+          router.push('/login');
+        }
+      }
+    );
+
+    return () => authListener.subscription.unsubscribe();
+  }, [router, fetchSpaces]);
   
   const handleLogout = async () => {
     try {
@@ -179,5 +205,3 @@ export default function UserDashboardPage() {
     </div>
   );
 }
-
-    
