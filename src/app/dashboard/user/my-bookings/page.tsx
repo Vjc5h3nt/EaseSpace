@@ -71,7 +71,6 @@ export default function MyBookingsPage() {
         }
     }, [toast]);
     
-    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
             setLoading(true);
@@ -99,7 +98,6 @@ export default function MyBookingsPage() {
         initializePage();
     }, [fetchBookings, router]);
 
-    // Separate useEffect for the auth state change listener
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
@@ -108,8 +106,6 @@ export default function MyBookingsPage() {
               setBookings([]);
               setLoading(false);
               router.push('/login');
-            } else if (event === 'SIGNED_IN') {
-              router.refresh();
             }
           }
         );

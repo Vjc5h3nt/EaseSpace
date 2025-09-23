@@ -109,7 +109,6 @@ export default function AdminDashboardPage() {
     }
   }, [toast]);
 
-  // Separate useEffect for the auth listener
   useEffect(() => {
     const initializePage = async () => {
       setLoading(true);
@@ -137,7 +136,6 @@ export default function AdminDashboardPage() {
     initializePage();
   }, [fetchDashboardData, router, toast]);
 
-  // Separate useEffect for the auth state change listener
   useEffect(() => {
       const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
@@ -149,10 +147,6 @@ export default function AdminDashboardPage() {
                   setStats({ totalBookings: 0, activeUsers: 0, avgDuration: "0h 0m", confirmedBookings: 0, cancelledBookings: 0 });
                   setLoading(false);
                   router.push('/login');
-              } else if (event === 'SIGNED_IN') {
-                  // Optionally, you can re-fetch data on sign-in if needed, for example if the user logs in in another tab.
-                  // But the initial load is handled by the other useEffect.
-                  router.refresh();
               }
           }
       );

@@ -36,7 +36,6 @@ export default function UsersPage() {
         setLoading(false);
     }, [toast]);
 
-    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
             setLoading(true);
@@ -65,7 +64,6 @@ export default function UsersPage() {
         initializePage();
     }, [fetchUsers, router, toast]);
     
-    // Separate useEffect for the auth state change listener
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
@@ -74,8 +72,6 @@ export default function UsersPage() {
                   setUsers([]);
                   setLoading(false);
                   router.push('/login');
-              } else if (event === 'SIGNED_IN') {
-                  router.refresh();
               }
           }
         );

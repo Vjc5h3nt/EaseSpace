@@ -45,7 +45,6 @@ export default function SettingsPage() {
         setLoading(false);
     }, [toast, router]);
 
-    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
             setLoading(true);
@@ -63,14 +62,11 @@ export default function SettingsPage() {
         initializePage();
     }, [fetchUserData, router]);
 
-    // Separate useEffect for the auth state change listener
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           async (event, session) => {
             if (event === 'SIGNED_OUT') {
                 router.push('/login');
-            } else if (event === 'SIGNED_IN') {
-                router.refresh();
             }
           }
         );

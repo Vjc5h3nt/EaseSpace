@@ -60,7 +60,6 @@ function CafeteriaBookingComponent() {
     }, [router, toast]);
 
 
-    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
             if (!cafeteriaId) {
@@ -92,15 +91,12 @@ function CafeteriaBookingComponent() {
         initializePage();
     }, [cafeteriaId, fetchCafeteria, router]);
     
-    // Separate useEffect for the auth state change listener
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
             if (event === 'SIGNED_OUT') {
               setUser(null);
               router.push('/login');
-            } else if (event === 'SIGNED_IN') {
-              router.refresh();
             }
           }
         );

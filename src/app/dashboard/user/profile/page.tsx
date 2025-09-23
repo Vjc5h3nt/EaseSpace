@@ -42,7 +42,6 @@ export default function UserProfilePage() {
         setLoading(false);
     }, [router]);
 
-    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
             setLoading(true);
@@ -58,7 +57,6 @@ export default function UserProfilePage() {
         initializePage();
     }, [fetchUserData, router]);
 
-    // Separate useEffect for the auth state change listener
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           async (event, session) => {
@@ -66,8 +64,6 @@ export default function UserProfilePage() {
               setUser(null);
               setLoading(false);
               router.push('/login');
-            } else if (event === 'SIGNED_IN') {
-              router.refresh();
             }
           }
         );

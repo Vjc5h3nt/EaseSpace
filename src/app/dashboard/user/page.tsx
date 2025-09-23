@@ -46,7 +46,6 @@ export default function UserDashboardPage() {
     }
   }, []);
 
-  // Separate useEffect for the auth listener
   useEffect(() => {
     const initializePage = async () => {
       setLoading(true);
@@ -79,7 +78,6 @@ export default function UserDashboardPage() {
     initializePage();
   }, [fetchSpaces, router]);
 
-  // Separate useEffect for the auth state change listener
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -89,8 +87,6 @@ export default function UserDashboardPage() {
           setMeetingRooms([]);
           setLoading(false);
           router.push('/login');
-        } else if (event === 'SIGNED_IN') {
-          router.refresh();
         }
       }
     );
