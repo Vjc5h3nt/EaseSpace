@@ -7,15 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X } from 'lucide-react';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import type { Booking, User, MeetingRoom, Cafeteria } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 
 
-type EnrichedBooking = Booking & { userName: string, spaceName: string };
+type EnrichedBooking = Booking & { user_name: string, space_name: string };
 
 export default function ApproveBookingPage() {
     const { toast } = useToast();
@@ -28,45 +26,50 @@ export default function ApproveBookingPage() {
     const fetchBookings = async (orgId: string) => {
         setLoading(true);
         try {
-            const bookingsQuery = query(
-                collection(db, 'bookings'), 
-                where('org_id', '==', orgId),
-                where('status', 'in', ['Requires Approval', 'Confirmed', 'Cancelled'])
-            );
-            const bookingsSnap = await getDocs(bookingsQuery);
+            const { data: bookingsData, error: bookingsError } = await supabase
+                .from('bookings')
+                .select(`
+                    *,
+                    users (full_name)
+                `)
+                .eq('org_id', orgId)
+                .in('status', ['Requires Approval', 'Confirmed', 'Cancelled']);
+
+            if (bookingsError) throw bookingsError;
             
-            if (bookingsSnap.empty) {
+            if (!bookingsData) {
                 setBookings([]);
                 setLoading(false);
                 return;
             }
-
-            const userIds = [...new Set(bookingsSnap.docs.map(d => d.data().user_id))];
-            const usersQuery = query(collection(db, 'users'), where('id', 'in', userIds.length ? userIds : ['dummy']));
-            const usersSnap = await getDocs(usersQuery);
-            const usersMap = new Map(usersSnap.docs.map(d => [d.data().id, d.data() as User]));
-
-            const spacesMap = new Map<string, string>();
-            const cafeteriaQuery = query(collection(db, 'cafeterias'), where('org_id', '==', orgId));
-            const meetingRoomQuery = query(collection(db, 'meetingRooms'), where('org_id', '==', orgId));
-            const [cafeteriaSnap, meetingRoomSnap] = await Promise.all([getDocs(cafeteriaQuery), getDocs(meetingRoomQuery)]);
-            cafeteriaSnap.forEach(doc => spacesMap.set(doc.id, doc.data().name));
-            meetingRoomSnap.forEach(doc => spacesMap.set(doc.id, doc.data().name));
             
-            const enrichedBookings = bookingsSnap.docs.map(doc => {
-                const bookingData = { id: doc.id, ...doc.data() } as Booking;
+            const spaceIds = [...new Set(bookingsData.map(b => b.space_id))];
+            const spacesMap = new Map<string, string>();
+
+            if (spaceIds.length > 0) {
+                const { data: cafeteriasData, error: cafeError } = await supabase.from('cafeterias').select('id, name').in('id', spaceIds);
+                if(cafeError) throw cafeError;
+                cafeteriasData?.forEach(c => spacesMap.set(c.id, c.name));
+
+                const { data: meetingRoomsData, error: roomError } = await supabase.from('meeting_rooms').select('id, name').in('id', spaceIds);
+                if(roomError) throw roomError;
+                meetingRoomsData?.forEach(r => spacesMap.set(r.id, r.name));
+            }
+            
+            const enrichedBookings = bookingsData.map(b => {
+                const booking = b as any;
                 return {
-                    ...bookingData,
-                    userName: usersMap.get(bookingData.user_id)?.full_name || 'Unknown User',
-                    spaceName: spacesMap.get(bookingData.space_id) || 'Unknown Space'
+                    ...booking,
+                    user_name: booking.users.full_name || 'Unknown User',
+                    space_name: spacesMap.get(booking.space_id) || 'Unknown Space'
                 }
             });
 
             setBookings(enrichedBookings);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast({ title: 'Error', description: 'Failed to fetch bookings.', variant: 'destructive' });
+            toast({ title: 'Error', description: error.message || 'Failed to fetch bookings.', variant: 'destructive' });
         } finally {
             setLoading(false);
         }
@@ -81,7 +84,7 @@ export default function ApproveBookingPage() {
                 .select('org_id')
                 .eq('id', session.user.id)
                 .single();
-              if (user) {
+              if (user && user.org_id) {
                 setOrgId(user.org_id);
                 fetchBookings(user.org_id);
               }
@@ -95,45 +98,53 @@ export default function ApproveBookingPage() {
 
     const handleBookingAction = async (booking: EnrichedBooking, newStatus: 'Confirmed' | 'Cancelled') => {
         if (newStatus === 'Cancelled') {
-            const bookingRef = doc(db, 'bookings', booking.id);
-            await updateDoc(bookingRef, { status: newStatus });
-            toast({ title: 'Success', description: `Booking has been rejected.` });
-            if(orgId) fetchBookings(orgId);
+            const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id);
+            if (error) {
+                toast({ title: 'Error', description: error.message, variant: 'destructive' });
+            } else {
+                toast({ title: 'Success', description: `Booking has been rejected.` });
+                if(orgId) fetchBookings(orgId);
+            }
             return;
         }
 
         // Conflict check for 'Confirmed'
-        const q = query(
-            collection(db, 'bookings'),
-            where('space_id', '==', booking.space_id),
-            where('date', '==', booking.date),
-            where('status', '==', 'Confirmed')
-        );
+        const { data: existingBookings, error: conflictError } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('space_id', booking.space_id)
+            .eq('date', booking.date)
+            .eq('status', 'Confirmed');
 
-        const querySnapshot = await getDocs(q);
-        const existingBookings = querySnapshot.docs.map(doc => doc.data() as Booking);
+        if (conflictError) {
+             toast({ title: 'Error', description: 'Could not check for booking conflicts.', variant: 'destructive' });
+             return;
+        }
+       
+        if (existingBookings) {
+             const newBookingStart = new Date(`${booking.date}T${booking.start_time}`).getTime();
+            const newBookingEnd = new Date(`${booking.date}T${booking.end_time}`).getTime();
 
-        const newBookingStart = new Date(`${booking.date}T${booking.start_time}`).getTime();
-        const newBookingEnd = new Date(`${booking.date}T${booking.end_time}`).getTime();
+            for (const existingBooking of existingBookings) {
+                const existingStart = new Date(`${existingBooking.date}T${existingBooking.start_time}`).getTime();
+                const existingEnd = new Date(`${existingBooking.date}T${existingBooking.end_time}`).getTime();
 
-        for (const existingBooking of existingBookings) {
-            const existingStart = new Date(`${existingBooking.date}T${existingBooking.start_time}`).getTime();
-            const existingEnd = new Date(`${existingBooking.date}T${existingBooking.end_time}`).getTime();
-
-            if (newBookingStart < existingEnd && newBookingEnd > existingStart) {
-                setConflictError(`This booking overlaps with a confirmed booking from ${existingBooking.start_time} to ${existingBooking.end_time}. Please reject this request.`);
-                return; 
+                if (newBookingStart < existingEnd && newBookingEnd > existingStart) {
+                    setConflictError(`This booking overlaps with a confirmed booking from ${existingBooking.start_time} to ${existingBooking.end_time}. Please reject this request.`);
+                    return; 
+                }
             }
         }
         
         try {
-            const bookingRef = doc(db, 'bookings', booking.id);
-            await updateDoc(bookingRef, { status: newStatus });
+            const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id);
+            if (error) throw error;
+
             toast({ title: 'Success', description: `Booking has been ${newStatus.toLowerCase()}.` });
             if(orgId) fetchBookings(orgId); // Refresh bookings
-        } catch (error) {
+        } catch (error: any) {
             console.error(`Error updating booking:`, error);
-            toast({ title: 'Error', description: 'Failed to update booking status.', variant: 'destructive' });
+            toast({ title: 'Error', description: error.message || 'Failed to update booking status.', variant: 'destructive' });
         }
     };
 
@@ -220,8 +231,8 @@ function BookingTable({ title, bookings, showActions, onAction, loading }: Booki
                         ) : bookings.length > 0 ? (
                             bookings.map(booking => (
                                 <TableRow key={booking.id}>
-                                    <TableCell>{booking.userName}</TableCell>
-                                    <TableCell>{booking.spaceName}</TableCell>
+                                    <TableCell>{booking.user_name}</TableCell>
+                                    <TableCell>{booking.space_name}</TableCell>
                                     <TableCell>{booking.date}</TableCell>
                                     <TableCell>{booking.start_time} - {booking.end_time}</TableCell>
                                     {showActions && (

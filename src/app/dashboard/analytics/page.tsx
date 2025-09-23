@@ -5,8 +5,6 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import type { Booking, User } from "@/lib/types";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -33,7 +31,7 @@ export default function AnalyticsPage() {
                 .select('org_id')
                 .eq('id', session.user.id)
                 .single();
-              if (user) {
+              if (user && user.org_id) {
                 setOrgId(user.org_id);
                 fetchAnalyticsData(user.org_id);
               }
@@ -50,16 +48,20 @@ export default function AnalyticsPage() {
         setLoading(true);
 
         try {
-            const [bookingsSnap, cafeteriasSnap, meetingRoomsSnap] = await Promise.all([
-                getDocs(query(collection(db, "bookings"), where("org_id", "==", orgId))),
-                getDocs(query(collection(db, "cafeterias"), where("org_id", "==", orgId))),
-                getDocs(query(collection(db, "meetingRooms"), where("org_id", "==", orgId))),
+            const [bookingsRes, cafeteriasRes, meetingRoomsRes] = await Promise.all([
+                supabase.from("bookings").select('*').eq("org_id", orgId),
+                supabase.from("cafeterias").select('id, name, capacity').eq("org_id", orgId),
+                supabase.from("meeting_rooms").select('id, name, capacity').eq("org_id", orgId),
             ]);
-            
-            const allSpacesDocs = [...cafeteriasSnap.docs, ...meetingRoomsSnap.docs];
 
-            const allBookings = bookingsSnap.docs.map(doc => doc.data() as Booking);
-            const totalCapacity = allSpacesDocs.reduce((acc, doc) => acc + (doc.data().capacity || 0), 0);
+            if (bookingsRes.error) throw bookingsRes.error;
+            if (cafeteriasRes.error) throw cafeteriasRes.error;
+            if (meetingRoomsRes.error) throw meetingRoomsRes.error;
+            
+            const allBookings = bookingsRes.data as Booking[];
+            const allSpaces = [...(cafeteriasRes.data || []), ...(meetingRoomsRes.data || [])];
+            
+            const totalCapacity = allSpaces.reduce((acc, space) => acc + (space.capacity || 0), 0);
             
             // Stats
             const totalBookings = allBookings.length;
@@ -77,8 +79,8 @@ export default function AnalyticsPage() {
             // Popular Space
             const spaceCounts: { [key: string]: number } = {};
             const spaceNames: { [key: string]: string } = {};
-            allSpacesDocs.forEach(doc => {
-                spaceNames[doc.id] = doc.data().name;
+             allSpaces.forEach(space => {
+                spaceNames[space.id] = space.name;
             });
             allBookings.forEach(b => {
                 spaceCounts[b.space_id] = (spaceCounts[b.space_id] || 0) + 1;
@@ -96,10 +98,10 @@ export default function AnalyticsPage() {
             // Chart Data
             setPeakHoursData(hours.map((count, i) => ({ name: `${i}h`, value: count })).filter(h => h.value > 0));
             
-            const days = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
+            const days: { [key: string]: number } = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             allBookings.forEach(b => {
-                const dayOfWeek = dayNames[new Date(b.date).getDay()];
+                const dayOfWeek = dayNames[new Date(b.date).getUTCDay()];
                 if (days.hasOwnProperty(dayOfWeek)) {
                      days[dayOfWeek as keyof typeof days]++;
                 }
@@ -107,9 +109,9 @@ export default function AnalyticsPage() {
             setDailyUsageData(Object.entries(days).map(([name, value]) => ({ name, value: Number(value) })));
 
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to fetch analytics data:", error);
-            toast({ title: "Error", description: "Could not load analytics.", variant: "destructive" });
+            toast({ title: "Error", description: error.message || "Could not load analytics.", variant: "destructive" });
         } finally {
             setLoading(false);
         }
