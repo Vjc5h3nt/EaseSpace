@@ -24,7 +24,7 @@ export default function OnboardingPage() {
   
   // State for onboarding data
   const [cafeterias, setCafeterias] = useState<(Omit<Cafeteria, 'id' | 'org_id' | 'created_at' | 'updated_at'> & {id?: string})[]>([]);
-  const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'org_id' | 'created_at' | 'updated_at'>[]>([]);
+  const [meetingRooms, setMeetingRooms] = useState<(Omit<MeetingRoom, 'id' | 'org_id' | 'created_at' | 'updated_at'> & { id?: string })[]>([]);
   
   // User and org state
   const [user, setUser] = useState<User | null>(null);
@@ -34,7 +34,7 @@ export default function OnboardingPage() {
   // Input fields for new cafeterias/rooms
   const [newCafeteriaName, setNewCafeteriaName] = useState("");
   const [newRoomName, setNewRoomName] = useState("");
-  const [newRoomCapacity, setNewRoomCapacity] = useState("");
+  const [newRoomCapacity, setNewRoomCapacity] = useState(0);
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
   const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
@@ -94,20 +94,21 @@ export default function OnboardingPage() {
   
   // Meeting Room Management
   const addMeetingRoom = () => {
-    if (newRoomName && newRoomCapacity) {
+    if (newRoomName.trim() && newRoomCapacity >= 0) {
       setMeetingRooms([
         ...meetingRooms,
         {
+          id: `mr-${Date.now()}`,
           name: newRoomName,
-          capacity: parseInt(newRoomCapacity),
-          amenities: newRoomAmenities.split(",").map((a) => a.trim()),
+          capacity: newRoomCapacity,
+          amenities: newRoomAmenities.split(",").map((a) => a.trim()).filter(Boolean),
           image_url: null,
           floor: null,
           location: null,
         },
       ]);
       setNewRoomName("");
-      setNewRoomCapacity("");
+      setNewRoomCapacity(0);
       setNewRoomAmenities("");
     }
   };
@@ -124,16 +125,14 @@ export default function OnboardingPage() {
 
     try {
       if (cafeterias.length > 0) {
-        const { error: cafeError } = await supabase.from('cafeterias').insert(
-            cafeterias.map(c => ({...c, org_id: orgId}))
-        );
+        const cafesToInsert = cafeterias.map(({ id, ...rest }) => ({...rest, org_id: orgId }));
+        const { error: cafeError } = await supabase.from('cafeterias').insert(cafesToInsert);
         if(cafeError) throw cafeError;
       }
 
       if (meetingRooms.length > 0) {
-        const { error: roomError } = await supabase.from('meeting_rooms').insert(
-            meetingRooms.map(r => ({...r, org_id: orgId}))
-        );
+        const roomsToInsert = meetingRooms.map(({ id, ...rest }) => ({...rest, org_id: orgId }));
+        const { error: roomError } = await supabase.from('meeting_rooms').insert(roomsToInsert);
         if(roomError) throw roomError;
       }
       
@@ -247,7 +246,7 @@ export default function OnboardingPage() {
                     </div>
                     <div className="space-y-1">
                         <Label htmlFor="room-capacity">Capacity</Label>
-                        <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(e.target.value)} placeholder="12" />
+                        <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(parseInt(e.target.value, 10) || 0)} placeholder="12" />
                     </div>
                     <div className="space-y-1 sm:col-span-2 md:col-span-1">
                         <Label htmlFor="room-amenities">Amenities (comma-separated)</Label>
@@ -260,7 +259,7 @@ export default function OnboardingPage() {
                  <div className="space-y-2 border rounded-md p-2 max-h-80 overflow-y-auto">
                   {meetingRooms.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">No meeting rooms added yet.</p>}
                   {meetingRooms.map((room, index) => (
-                    <div key={index} className="flex items-center justify-between rounded-md border bg-card p-3">
+                    <div key={room.id || index} className="flex items-center justify-between rounded-md border bg-card p-3">
                       <div>
                         <p className="font-medium">{room.name} (Capacity: {room.capacity})</p>
                         <p className="text-sm text-muted-foreground">{room.amenities?.join(', ')}</p>
@@ -304,3 +303,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+    
