@@ -34,7 +34,7 @@ export default function OnboardingPage() {
   // Input fields for new cafeterias/rooms
   const [newCafeteriaName, setNewCafeteriaName] = useState("");
   const [newRoomName, setNewRoomName] = useState("");
-  const [newRoomCapacity, setNewRoomCapacity] = useState(0);
+  const [newRoomCapacity, setNewRoomCapacity] = useState('');
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
   const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
@@ -94,13 +94,19 @@ export default function OnboardingPage() {
   
   // Meeting Room Management
   const addMeetingRoom = () => {
-    if (newRoomName.trim() && newRoomCapacity >= 0) {
+    if (newRoomName.trim() && newRoomCapacity.trim()) {
+      const capacity = parseInt(newRoomCapacity, 10);
+      if (isNaN(capacity) || capacity < 0) {
+        toast({ title: "Invalid Capacity", description: "Please enter a valid number for capacity.", variant: "destructive" });
+        return;
+      }
+
       setMeetingRooms([
         ...meetingRooms,
         {
           id: `mr-${Date.now()}`,
           name: newRoomName,
-          capacity: newRoomCapacity,
+          capacity: capacity,
           amenities: newRoomAmenities.split(",").map((a) => a.trim()).filter(Boolean),
           image_url: null,
           floor: null,
@@ -108,7 +114,7 @@ export default function OnboardingPage() {
         },
       ]);
       setNewRoomName("");
-      setNewRoomCapacity(0);
+      setNewRoomCapacity('');
       setNewRoomAmenities("");
     }
   };
@@ -251,7 +257,7 @@ export default function OnboardingPage() {
                     </div>
                     <div className="space-y-1">
                         <Label htmlFor="room-capacity">Capacity</Label>
-                        <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(parseInt(e.target.value, 10) || 0)} placeholder="12" />
+                        <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(e.target.value)} placeholder="12" />
                     </div>
                     <div className="space-y-1 sm:col-span-2 md:col-span-1">
                         <Label htmlFor="room-amenities">Amenities (comma-separated)</Label>
@@ -308,3 +314,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+    
