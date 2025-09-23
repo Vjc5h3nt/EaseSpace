@@ -63,43 +63,51 @@ export default function OnboardingPage() {
   }, [toast]);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const currentUser = session?.user;
-        if (currentUser) {
-          setIsEmailVerified(!!currentUser.email_confirmed_at);
+    const initializePage = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user;
 
-          if (!currentUser.email_confirmed_at) {
-            toast({
-              title: "Verification Required",
-              description: "Please verify your email before proceeding.",
-              variant: "destructive",
-              duration: 5000,
-            });
-          }
-          
-          const { data: userData, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
-
-          if (userData) {
-            setUser(userData);
-            if (userData.org_id) {
-                setOrgId(userData.org_id);
-                await fetchSpaces(userData.org_id);
-            }
-            if (userData.onboarding_complete) {
-              router.push('/dashboard/admin');
-            }
-          }
-        } else {
-          router.push('/login');
+      if (currentUser) {
+        setIsEmailVerified(!!currentUser.email_confirmed_at);
+        if (!currentUser.email_confirmed_at) {
+          toast({
+            title: "Verification Required",
+            description: "Please verify your email before proceeding.",
+            variant: "destructive",
+            duration: 5000,
+          });
         }
-        setLoading(false);
+        
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (userData) {
+          setUser(userData);
+          if (userData.org_id) {
+            setOrgId(userData.org_id);
+            await fetchSpaces(userData.org_id);
+          }
+          if (userData.onboarding_complete) {
+            router.push('/dashboard/admin');
+          }
+        }
+      } else {
+        router.push('/login');
       }
-    );
+      setLoading(false);
+    };
+
+    initializePage();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      // Re-run initialization if user logs in or out in another tab
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        initializePage();
+      }
+    });
 
     return () => {
       authListener.subscription.unsubscribe();
