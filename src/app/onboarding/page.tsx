@@ -122,6 +122,11 @@ export default function OnboardingPage() {
         toast({ title: "Error", description: "You must verify your email before finishing setup.", variant: 'destructive' });
         return;
     }
+    
+    if (cafeterias.length === 0 && meetingRooms.length === 0) {
+      toast({ title: "Error", description: "Please add at least one cafeteria or meeting room.", variant: 'destructive' });
+      return;
+    }
 
     try {
       if (cafeterias.length > 0) {
@@ -303,5 +308,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
-    
