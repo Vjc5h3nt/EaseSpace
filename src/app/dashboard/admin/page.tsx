@@ -7,8 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Pencil, PlusCircle } from "lucide-react";
 import type { Booking, Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
-import { db } from "@/lib/firebase";
-import { collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc } from "firebase/firestore";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -53,7 +51,7 @@ export default function AdminDashboardPage() {
             .select('org_id')
             .eq('id', session.user.id)
             .single();
-          if (user) {
+          if (user && user.org_id) {
             setOrgId(user.org_id);
             fetchDashboardData(user.org_id);
           }
@@ -71,17 +69,22 @@ export default function AdminDashboardPage() {
 
       try {
         // Fetch all data in parallel
-        const [cafeteriasSnap, meetingRoomsSnap, bookingsSnap, usersSnap] = await Promise.all([
-            getDocs(query(collection(db, "cafeterias"), where("org_id", "==", orgId))),
-            getDocs(query(collection(db, "meetingRooms"), where("org_id", "==", orgId))),
-            getDocs(query(collection(db, "bookings"), where("org_id", "==", orgId))),
-            getDocs(query(collection(db, "users"), where("org_id", "==", orgId)))
+        const [cafeteriasRes, meetingRoomsRes, bookingsRes, usersRes] = await Promise.all([
+            supabase.from('cafeterias').select('*').eq('org_id', orgId),
+            supabase.from('meeting_rooms').select('*').eq('org_id', orgId),
+            supabase.from('bookings').select('*').eq('org_id', orgId),
+            supabase.from('users').select('*').eq('org_id', orgId)
         ]);
 
-        const fetchedCafeterias = cafeteriasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafeteria));
-        const fetchedMeetingRooms = meetingRoomsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom));
-        const allBookings = bookingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
-        const allUsers = usersSnap.docs.map(doc => doc.data() as User);
+        if (cafeteriasRes.error) throw cafeteriasRes.error;
+        if (meetingRoomsRes.error) throw meetingRoomsRes.error;
+        if (bookingsRes.error) throw bookingsRes.error;
+        if (usersRes.error) throw usersRes.error;
+
+        const fetchedCafeterias = cafeteriasRes.data as Cafeteria[];
+        const fetchedMeetingRooms = meetingRoomsRes.data as MeetingRoom[];
+        const allBookings = bookingsRes.data as Booking[];
+        const allUsers = usersRes.data as User[];
 
         const usersMap = new Map(allUsers.map(u => [u.id, u.full_name]));
         const spacesMap = new Map([
@@ -98,6 +101,7 @@ export default function AdminDashboardPage() {
         const cancelledBookings = allBookings.filter(b => b.status === 'Cancelled').length;
         const activeUsers = new Set(allBookings.map(b => b.user_id)).size;
         const totalDuration = allBookings.reduce((acc, b) => {
+            if (!b.start_time || !b.end_time || !b.date) return acc;
             const startTime = new Date(`${b.date}T${b.start_time}`);
             const endTime = new Date(`${b.date}T${b.end_time}`);
             return acc + differenceInMinutes(endTime, startTime);
@@ -110,7 +114,7 @@ export default function AdminDashboardPage() {
         const sortedBookings = allBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         const enrichedRecentBookings = sortedBookings.slice(0, 5).map(b => ({
             ...b,
-            userName: usersMap.get(b.user_id) || 'Unknown User',
+            userName: usersMap.get(b.user_id || '') || 'Unknown User',
             spaceName: spacesMap.get(b.space_id) || 'Unknown Space',
             seat: b.table_id ? `Table ${b.table_id.split('-')[1]}` : 'N/A'
         }));
@@ -127,18 +131,20 @@ export default function AdminDashboardPage() {
 
   const handleEditLayout = (cafe: Cafeteria) => {
     setSelectedCafeteria(cafe);
-    setCurrentLayout(cafe.layout || []);
+    setCurrentLayout(cafe.layout as TableLayout[] || []);
   };
 
   const handleSaveLayout = async () => {
     if (!selectedCafeteria) return;
 
     try {
-        const cafeteriaRef = doc(db, "cafeterias", selectedCafeteria.id);
-        await updateDoc(cafeteriaRef, {
-            layout: currentLayout,
-            capacity: currentLayout.length * 4
-        });
+        const { error } = await supabase
+            .from('cafeterias')
+            .update({ layout: currentLayout, capacity: currentLayout.length * 4 })
+            .eq('id', selectedCafeteria.id);
+
+        if (error) throw error;
+        
         toast({
             title: "Layout Saved!",
             description: `The layout for ${selectedCafeteria.name} has been updated.`,
@@ -157,12 +163,12 @@ export default function AdminDashboardPage() {
   const handleAddCafeteria = async () => {
     if (!newCafeName.trim() || !orgId) return;
     try {
-        await addDoc(collection(db, "cafeterias"), {
-            name: newCafeName,
-            org_id: orgId,
-            capacity: 0,
-            layout: []
-        });
+        const { error } = await supabase
+            .from('cafeterias')
+            .insert({ name: newCafeName, org_id: orgId, capacity: 0, layout: [] });
+
+        if (error) throw error;
+
         toast({ title: "Cafeteria Added!", description: `${newCafeName} has been created.` });
         setIsAddCafeDialogOpen(false);
         setNewCafeName("");
@@ -175,12 +181,17 @@ export default function AdminDashboardPage() {
   const handleAddMeetingRoom = async () => {
     if (!newRoomName.trim() || !newRoomCapacity || !orgId) return;
     try {
-        await addDoc(collection(db, "meetingRooms"), {
-            name: newRoomName,
-            capacity: parseInt(newRoomCapacity, 10),
-            amenities: newRoomAmenities.split(',').map(a => a.trim()).filter(Boolean),
-            org_id: orgId
-        });
+        const { error } = await supabase
+            .from('meeting_rooms')
+            .insert({
+                name: newRoomName,
+                capacity: parseInt(newRoomCapacity, 10),
+                amenities: newRoomAmenities.split(',').map(a => a.trim()).filter(Boolean),
+                org_id: orgId
+            });
+
+        if (error) throw error;
+
         toast({ title: "Meeting Room Added!", description: `${newRoomName} has been created.` });
         setIsAddRoomDialogOpen(false);
         setNewRoomName("");

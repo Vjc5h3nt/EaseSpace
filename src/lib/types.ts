@@ -21,3 +21,5 @@ export type MeetingRoom = Database["public"]["Tables"]["meeting_rooms"]["Row"];
 export type Booking = Database["public"]["Tables"]["bookings"]["Row"];
 
 export type Analytics = Database["public"]["Tables"]["analytics"]["Row"];
+
+    

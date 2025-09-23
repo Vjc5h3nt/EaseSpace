@@ -3,8 +3,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { supabase } from "@/lib/supabase";
 import type { User, Cafeteria, MeetingRoom } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -50,19 +48,25 @@ export default function UserDashboardPage() {
   }, [router]);
 
   const fetchSpaces = async (org_id: string) => {
-    // This function will only be called if org_id is valid.
     setLoading(true);
     try {
-        // Fetch Cafeterias
-        const cafeteriasQuery = query(collection(db, "cafeterias"), where("org_id", "==", org_id));
-        const cafeteriasSnapshot = await getDocs(cafeteriasQuery);
-        setCafeterias(cafeteriasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafeteria)));
+        const { data: cafeteriasData, error: cafeteriasError } = await supabase
+            .from('cafeterias')
+            .select('*')
+            .eq('org_id', org_id);
+
+        if (cafeteriasError) throw cafeteriasError;
+        setCafeterias(cafeteriasData || []);
+
+        const { data: meetingRoomsData, error: meetingRoomsError } = await supabase
+            .from('meeting_rooms')
+            .select('*')
+            .eq('org_id', org_id);
         
-        // Fetch Meeting Rooms
-        const meetingRoomsQuery = query(collection(db, "meetingRooms"), where("org_id", "==", org_id));
-        const meetingRoomsSnapshot = await getDocs(meetingRoomsQuery);
-        setMeetingRooms(meetingRoomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom)));
-    } catch (error) {
+        if (meetingRoomsError) throw meetingRoomsError;
+        setMeetingRooms(meetingRoomsData || []);
+
+    } catch (error: any) {
         console.error("Error fetching spaces:", error);
     } finally {
         setLoading(false);
