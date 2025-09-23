@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon, Utensils, Building, ArrowRight, CalendarCheck } from "lucide-react";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UserDashboardPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
   const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
@@ -44,8 +46,10 @@ export default function UserDashboardPage() {
     }
   }, []);
 
+  // Separate useEffect for the auth listener
   useEffect(() => {
     const initializePage = async () => {
+      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data: userData, error } = await supabase
@@ -62,7 +66,7 @@ export default function UserDashboardPage() {
             setLoading(false);
           }
         } else {
-          console.log("No such user document!");
+          if (error) console.error("Error fetching user data:", error);
           setLoading(false);
           router.push('/login');
         }
@@ -73,23 +77,26 @@ export default function UserDashboardPage() {
     };
 
     initializePage();
+  }, [fetchSpaces, router]);
 
+  // Separate useEffect for the auth state change listener
+  useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN') {
-          initializePage();
-        } else if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT') {
           setUser(null);
           setCafeterias([]);
           setMeetingRooms([]);
           setLoading(false);
           router.push('/login');
+        } else if (event === 'SIGNED_IN') {
+          router.refresh();
         }
       }
     );
 
     return () => authListener.subscription.unsubscribe();
-  }, []);
+  }, [router]);
   
   const handleLogout = async () => {
     try {

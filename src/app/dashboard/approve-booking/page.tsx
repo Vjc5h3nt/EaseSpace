@@ -11,12 +11,14 @@ import type { Booking, User, MeetingRoom, Cafeteria } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { useRouter } from 'next/navigation';
 
 
 type EnrichedBooking = Booking & { user_name: string, space_name: string };
 
 export default function ApproveBookingPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
     const [orgId, setOrgId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -75,8 +77,10 @@ export default function ApproveBookingPage() {
         }
     }, [toast]);
     
+    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
+            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               const { data: user, error } = await supabase
@@ -90,27 +94,33 @@ export default function ApproveBookingPage() {
               } else {
                 setLoading(false);
                 if (error) toast({title: "Error", description: "Could not fetch user data.", variant: "destructive"});
+                router.push('/login');
               }
             } else {
               setLoading(false);
+              router.push('/login');
             }
         };
 
         initializePage();
-
+    }, [fetchBookings, router, toast]);
+    
+    // Separate useEffect for the auth state change listener
+    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-             if (event === 'SIGNED_IN') {
-                  initializePage();
-              } else if (event === 'SIGNED_OUT') {
+             if (event === 'SIGNED_OUT') {
                   setOrgId(null);
                   setBookings([]);
                   setLoading(false);
+                  router.push('/login');
+              } else if (event === 'SIGNED_IN') {
+                  router.refresh();
               }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, []);
+    }, [router]);
 
     const handleBookingAction = async (booking: EnrichedBooking, newStatus: 'Confirmed' | 'Cancelled') => {
         if (!orgId) return;

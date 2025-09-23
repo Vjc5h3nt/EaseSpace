@@ -7,9 +7,11 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import type { Booking, User } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 export default function AnalyticsPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [orgId, setOrgId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -96,8 +98,10 @@ export default function AnalyticsPage() {
         }
     }, [toast]);
     
+    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
+            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               const { data: user, error } = await supabase
@@ -111,29 +115,35 @@ export default function AnalyticsPage() {
               } else {
                 setLoading(false);
                 if (error) toast({title: "Error", description: "Could not fetch user data.", variant: "destructive"});
+                router.push('/login');
               }
             } else {
               setLoading(false);
+              router.push('/login');
             }
         };
 
         initializePage();
+    }, [fetchAnalyticsData, router, toast]);
 
+    // Separate useEffect for the auth state change listener
+    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-             if (event === 'SIGNED_IN') {
-                  initializePage();
-              } else if (event === 'SIGNED_OUT') {
+             if (event === 'SIGNED_OUT') {
                   setOrgId(null);
                   setStats({ totalBookings: 0, utilizationRate: "0%", peakHour: "N/A", popularSpace: "N/A" });
                   setPeakHoursData([]);
                   setDailyUsageData([]);
                   setLoading(false);
+                  router.push('/login');
+              } else if (event === 'SIGNED_IN') {
+                  router.refresh();
               }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, []);
+    }, [router]);
 
     if (loading) {
       return <div className="flex justify-center items-center h-full">Loading analytics...</div>

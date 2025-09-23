@@ -63,8 +63,10 @@ function MeetingRoomBookingComponent() {
         setLoading(false);
     }, [toast]);
 
+    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
+            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             const currentUser = session?.user;
             if (currentUser) {
@@ -88,23 +90,26 @@ function MeetingRoomBookingComponent() {
         };
 
         initializePage();
+    }, [fetchRooms, router]);
 
+    // Separate useEffect for the auth state change listener
+    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-             if (event === 'SIGNED_IN') {
-                  initializePage();
-              } else if (event === 'SIGNED_OUT') {
+             if (event === 'SIGNED_OUT') {
                   setUser(null);
                   setRooms([]);
                   setSelectedRoom(null);
                   setBookings([]);
                   setLoading(false);
                   router.push('/login');
+              } else if (event === 'SIGNED_IN') {
+                  router.refresh();
               }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, []);
+    }, [router]);
 
     const fetchBookingsAndUsers = useCallback(async () => {
         if (!selectedRoom) return;

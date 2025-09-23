@@ -60,6 +60,7 @@ function CafeteriaBookingComponent() {
     }, [router, toast]);
 
 
+    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
             if (!cafeteriaId) {
@@ -67,6 +68,7 @@ function CafeteriaBookingComponent() {
                 return;
             }
             
+            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               const { data: userData, error } = await supabase
@@ -88,19 +90,22 @@ function CafeteriaBookingComponent() {
         };
 
         initializePage();
-        
+    }, [cafeteriaId, fetchCafeteria, router]);
+    
+    // Separate useEffect for the auth state change listener
+    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-            if(event === 'SIGNED_IN') {
-                initializePage();
-            } else if (event === 'SIGNED_OUT') {
+            if (event === 'SIGNED_OUT') {
               setUser(null);
               router.push('/login');
+            } else if (event === 'SIGNED_IN') {
+              router.refresh();
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, []);
+    }, [router]);
 
     const availableSeatsAtSelectedTable = useMemo(() => {
         if (!selectedTable) return 0;

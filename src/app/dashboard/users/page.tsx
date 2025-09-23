@@ -36,8 +36,10 @@ export default function UsersPage() {
         setLoading(false);
     }, [toast]);
 
+    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
+            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
                 const { data: user, error } = await supabase
@@ -52,6 +54,7 @@ export default function UsersPage() {
                 } else {
                     if (error) toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
                     setLoading(false);
+                    router.push('/login');
                 }
             } else {
                 router.push('/login');
@@ -60,21 +63,24 @@ export default function UsersPage() {
         };
 
         initializePage();
-        
+    }, [fetchUsers, router, toast]);
+    
+    // Separate useEffect for the auth state change listener
+    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event, session) => {
-             if (event === 'SIGNED_IN') {
-                  initializePage();
-              } else if (event === 'SIGNED_OUT') {
+             if (event === 'SIGNED_OUT') {
                   setOrgId(null);
                   setUsers([]);
                   setLoading(false);
                   router.push('/login');
+              } else if (event === 'SIGNED_IN') {
+                  router.refresh();
               }
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, []);
+    }, [router]);
 
     const handleUserApproval = async (userId: string, newStatus: 'active' | 'rejected') => {
         try {

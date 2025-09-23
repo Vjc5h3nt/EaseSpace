@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
@@ -23,7 +24,6 @@ export default function SettingsPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [authUser, setAuthUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const router = useRouter();
     
     const fetchUserData = useCallback(async (currentUserId: string) => {
         setLoading(true);
@@ -45,8 +45,10 @@ export default function SettingsPage() {
         setLoading(false);
     }, [toast, router]);
 
+    // Separate useEffect for the auth listener
     useEffect(() => {
         const initializePage = async () => {
+            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             const currentUser = session?.user;
             setAuthUser(currentUser);
@@ -59,18 +61,21 @@ export default function SettingsPage() {
         };
 
         initializePage();
+    }, [fetchUserData, router]);
 
+    // Separate useEffect for the auth state change listener
+    useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
           async (event, session) => {
-            if (event === 'SIGNED_IN') {
-                initializePage();
-            } else if (event === 'SIGNED_OUT') {
+            if (event === 'SIGNED_OUT') {
                 router.push('/login');
+            } else if (event === 'SIGNED_IN') {
+                router.refresh();
             }
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, []);
+    }, [router]);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {

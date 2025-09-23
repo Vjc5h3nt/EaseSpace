@@ -15,11 +15,13 @@ import { useToast } from "@/hooks/use-toast";
 import { differenceInMinutes, format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
 
 type EnrichedBooking = Booking & { userName: string, spaceName: string };
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
   const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
@@ -105,47 +107,57 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-}, [toast]);
+  }, [toast]);
 
-useEffect(() => {
-  const initializePage = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('org_id')
-        .eq('id', session.user.id)
-        .single();
-      if (user && user.org_id) {
-        setOrgId(user.org_id);
-        await fetchDashboardData(user.org_id);
+  // Separate useEffect for the auth listener
+  useEffect(() => {
+    const initializePage = async () => {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('org_id')
+          .eq('id', session.user.id)
+          .single();
+        if (user && user.org_id) {
+          setOrgId(user.org_id);
+          await fetchDashboardData(user.org_id);
+        } else {
+          setLoading(false);
+          if (error) toast({title: "Error", description: "Could not fetch user data.", variant: "destructive"});
+          router.push('/login');
+        }
       } else {
         setLoading(false);
-        if (error) toast({title: "Error", description: "Could not fetch user data.", variant: "destructive"});
+        router.push('/login');
       }
-    } else {
-      setLoading(false);
-    }
-  };
+    };
 
-  initializePage();
+    initializePage();
+  }, [fetchDashboardData, router, toast]);
 
-  const { data: authListener } = supabase.auth.onAuthStateChange(
-    (event, session) => {
-       if (event === 'SIGNED_IN') {
-            initializePage();
-        } else if (event === 'SIGNED_OUT') {
-            setOrgId(null);
-            setCafeterias([]);
-            setMeetingRooms([]);
-            setRecentBookings([]);
-            setStats({ totalBookings: 0, activeUsers: 0, avgDuration: "0h 0m", confirmedBookings: 0, cancelledBookings: 0 });
-            setLoading(false);
-        }
-    }
-  );
-  return () => authListener.subscription.unsubscribe();
-}, []);
+  // Separate useEffect for the auth state change listener
+  useEffect(() => {
+      const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+              if (event === 'SIGNED_OUT') {
+                  setOrgId(null);
+                  setCafeterias([]);
+                  setMeetingRooms([]);
+                  setRecentBookings([]);
+                  setStats({ totalBookings: 0, activeUsers: 0, avgDuration: "0h 0m", confirmedBookings: 0, cancelledBookings: 0 });
+                  setLoading(false);
+                  router.push('/login');
+              } else if (event === 'SIGNED_IN') {
+                  // Optionally, you can re-fetch data on sign-in if needed, for example if the user logs in in another tab.
+                  // But the initial load is handled by the other useEffect.
+                  router.refresh();
+              }
+          }
+      );
+      return () => authListener.subscription.unsubscribe();
+  }, [router]);
 
 
   const handleEditLayout = (cafe: Cafeteria) => {
