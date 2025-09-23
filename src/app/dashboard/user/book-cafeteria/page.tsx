@@ -4,10 +4,8 @@
 import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
-import { doc, getDoc, addDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { supabase } from '@/lib/supabase';
-import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
+import type { Cafeteria, TableLayout, Booking, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -42,7 +40,7 @@ function CafeteriaBookingComponent() {
     const [bookingsBySlot, setBookingsBySlot] = useState<BookingsForSlot>({});
     const [userTotalBookedSeats, setUserTotalBookedSeats] = useState(0);
 
-    const [user, setUser] = useState<{id: string, org_id: string} | null>(null);
+    const [user, setUser] = useState<User | null>(null);
 
     useEffect(() => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -50,7 +48,7 @@ function CafeteriaBookingComponent() {
             if (session?.user) {
               const { data: userData, error } = await supabase
                 .from('users')
-                .select('id, org_id')
+                .select('*')
                 .eq('id', session.user.id)
                 .single();
               if (userData) {
@@ -62,7 +60,7 @@ function CafeteriaBookingComponent() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [router]);
+    }, [router]);
 
     useEffect(() => {
         if (!cafeteriaId) {
@@ -72,14 +70,17 @@ function CafeteriaBookingComponent() {
 
         const fetchCafeteria = async () => {
             setLoading(true);
-            const docRef = doc(db, "cafeterias", cafeteriaId);
-            const docSnap = await getDoc(docRef);
+            const { data, error } = await supabase
+                .from('cafeterias')
+                .select('*')
+                .eq('id', cafeteriaId)
+                .single();
 
-            if (docSnap.exists()) {
-                setCafeteria({ id: docSnap.id, ...docSnap.data() } as Cafeteria);
-            } else {
+            if (error || !data) {
                 toast({ title: "Error", description: "Cafeteria not found.", variant: "destructive" });
                 router.push('/dashboard/user');
+            } else {
+                setCafeteria(data as Cafeteria);
             }
             setLoading(false);
         };
@@ -106,20 +107,23 @@ function CafeteriaBookingComponent() {
             }
 
             const [startTime] = timeSlot.split(' - ');
-            const q = query(
-                collection(db, "bookings"),
-                where("space_id", "==", cafeteriaId),
-                where("date", "==", format(bookingDate, "yyyy-MM-dd")),
-                where("start_time", "==", startTime.trim()),
-                where("status", "==", "Confirmed")
-            );
+            const { data, error } = await supabase
+                .from('bookings')
+                .select('table_id, seat_count, user_id')
+                .eq('space_id', cafeteriaId)
+                .eq('date', format(bookingDate, "yyyy-MM-dd"))
+                .eq('start_time', `${startTime.trim()}:00`)
+                .eq('status', 'Confirmed');
 
-            const querySnapshot = await getDocs(q);
+            if (error) {
+                console.error("Error fetching bookings:", error);
+                return;
+            }
+
             const newBookingsBySlot: BookingsForSlot = {};
             let totalUserSeats = 0;
 
-            querySnapshot.forEach(doc => {
-                const booking = doc.data() as Booking;
+            data.forEach(booking => {
                 if (booking.table_id && booking.seat_count) {
                     newBookingsBySlot[booking.table_id] = (newBookingsBySlot[booking.table_id] || 0) + booking.seat_count;
                 }
@@ -176,25 +180,22 @@ function CafeteriaBookingComponent() {
         }
 
         try {
-            const newBooking: Omit<Booking, 'id' | 'created_at' | 'updated_at'> = {
+            const [startTime, endTime] = timeSlot.split(' - ');
+            
+            const { error } = await supabase.from('bookings').insert({
                 org_id: user.org_id,
                 user_id: user.id,
                 space_id: cafeteria.id,
                 space_type: 'cafeteria',
                 date: format(bookingDate, "yyyy-MM-dd"),
-                start_time: timeSlot.split('-')[0].trim(),
-                end_time: timeSlot.split('-')[1].trim(),
+                start_time: `${startTime.trim()}:00`,
+                end_time: `${endTime.trim()}:00`,
                 status: 'Confirmed',
                 table_id: selectedTable.id,
                 seat_count: seatCount,
-                contact: null,
-                employee_id: null,
-                participants: null,
-                purpose: null,
-                user_name: null
-            };
-            
-            await addDoc(collection(db, "bookings"), { ...newBooking, created_at: serverTimestamp(), updated_at: serverTimestamp() });
+            });
+
+            if (error) throw error;
 
             toast({ title: "Booking Confirmed!", description: `You have booked ${seatCount} seat(s) at table ${selectedTable.id.split('-')[1]}.` });
             
@@ -269,7 +270,7 @@ function CafeteriaBookingComponent() {
 
             <div className="relative w-full h-[600px] rounded-md border bg-slate-100 overflow-hidden">
                 {!timeSlot && <div className="absolute inset-0 flex items-center justify-center bg-gray-500/10 backdrop-blur-sm z-10"><p className="text-lg font-semibold text-neutral-700">Please select a time slot to see table availability.</p></div>}
-                {cafeteria.layout.map((table) => {
+                {(cafeteria.layout as TableLayout[]).map((table) => {
                     const bookedSeats = bookingsBySlot[table.id] || 0;
                     const isFull = bookedSeats >= 4;
                     return (

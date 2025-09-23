@@ -3,16 +3,14 @@
 
 import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp, Timestamp, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { MeetingRoom, Booking, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar as CalendarIcon, Clock, Users, Briefcase, User as UserIcon, Building, Phone, Eye, Info } from 'lucide-react';
+import { ArrowLeft, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { format, differenceInMinutes } from 'date-fns';
+import { format, differenceInMinutes, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -63,7 +61,7 @@ function MeetingRoomBookingComponent() {
                 .single();
               if (userData) {
                 setUser(userData);
-                fetchRooms(userData.org_id);
+                fetchRooms(userData.org_id!);
               } else {
                 router.push('/login');
               }
@@ -77,53 +75,83 @@ function MeetingRoomBookingComponent() {
 
     const fetchRooms = async (orgId: string) => {
         setLoading(true);
-        const roomsQuery = query(collection(db, "meetingRooms"), where("org_id", "==", orgId));
-        const roomsSnapshot = await getDocs(roomsQuery);
-        const fetchedRooms = roomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeetingRoom));
-        setRooms(fetchedRooms);
-        if (fetchedRooms.length > 0) {
-            setSelectedRoom(fetchedRooms[0]);
+        const { data, error } = await supabase.from('meeting_rooms').select('*').eq('org_id', orgId);
+        if (error) {
+            toast({ title: "Error", description: "Could not fetch meeting rooms.", variant: "destructive" });
+        } else {
+            const fetchedRooms = data as MeetingRoom[];
+            setRooms(fetchedRooms);
+            if (fetchedRooms.length > 0) {
+                setSelectedRoom(fetchedRooms[0]);
+            }
         }
         setLoading(false);
     };
 
-    useEffect(() => {
+    const fetchBookingsAndUsers = useCallback(async () => {
         if (!selectedRoom) return;
 
-        const bookingsQuery = query(collection(db, "bookings"), where("space_id", "==", selectedRoom.id));
-        const unsubscribeBookings = onSnapshot(bookingsQuery, async (snapshot) => {
-            const userIds = [...new Set(snapshot.docs.map(d => d.data().user_id))];
-            const usersMap = new Map<string, string>();
-            if (userIds.length > 0) {
-                 const usersQuery = query(collection(db, 'users'), where('id', 'in', userIds));
-                 const usersSnap = await getDocs(usersQuery);
-                 usersSnap.forEach(doc => {
-                     const userData = doc.data() as User;
-                     usersMap.set(userData.id, userData.full_name);
-                 });
-            }
+        const { data: bookingsData, error: bookingsError } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('space_id', selectedRoom.id)
+            .neq('status', 'Cancelled');
 
-            const fetchedBookings = snapshot.docs
-                .map(doc => {
-                    const bookingData = { id: doc.id, ...doc.data() } as Booking;
-                    return {
-                        ...bookingData,
-                        userName: usersMap.get(bookingData.user_id) || 'A User'
-                    }
-                })
-                .filter(booking => booking.status !== 'Cancelled'); // Exclude cancelled bookings from the list
-            setBookings(fetchedBookings);
-        });
+        if (bookingsError) {
+            console.error("Error fetching bookings", bookingsError);
+            return;
+        }
 
-        return () => unsubscribeBookings();
+        const userIds = [...new Set(bookingsData.map(b => b.user_id).filter(Boolean))] as string[];
+        const usersMap = new Map<string, string>();
+
+        if (userIds.length > 0) {
+            const { data: usersData, error: usersError } = await supabase
+                .from('users')
+                .select('id, full_name')
+                .in('id', userIds);
+            
+            if (usersError) console.error("Error fetching users", usersError);
+            else usersData?.forEach(u => usersMap.set(u.id, u.full_name));
+        }
+
+        const enrichedBookings = bookingsData.map(b => ({
+            ...b,
+            userName: usersMap.get(b.user_id || '') || 'A User'
+        }));
+        
+        setBookings(enrichedBookings);
     }, [selectedRoom]);
+
+    useEffect(() => {
+        fetchBookingsAndUsers();
+    
+        if (!selectedRoom) return;
+    
+        const channel = supabase.channel(`bookings-room-${selectedRoom.id}`)
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'bookings',
+            filter: `space_id=eq.${selectedRoom.id}`
+          }, (payload) => {
+            console.log('Change received!', payload)
+            // Refetch all bookings for simplicity
+            fetchBookingsAndUsers();
+          })
+          .subscribe();
+    
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      }, [selectedRoom, fetchBookingsAndUsers]);
+
 
     const calendarEvents = useMemo((): EventInput[] => {
         const getColor = (status: Booking['status']) => {
             switch (status) {
                 case 'Confirmed': return 'rgba(34, 197, 94, 0.8)';
                 case 'Requires Approval': return 'rgba(59, 130, 246, 0.8)';
-                // Cancelled bookings are filtered out, so no color is needed.
                 default: return 'rgba(107, 114, 128, 0.8)';
             }
         };
@@ -186,14 +214,14 @@ function MeetingRoomBookingComponent() {
         }
         setIsSubmitting(true);
         
-        const newBookingStart = new Date(`${format(bookingDate, 'yyyy-MM-dd')}T${startTime}`).getTime();
-        const newBookingEnd = new Date(`${format(bookingDate, 'yyyy-MM-dd')}T${endTime}`).getTime();
+        const newBookingStart = parse(startTime, 'HH:mm', bookingDate).getTime();
+        const newBookingEnd = parse(endTime, 'HH:mm', bookingDate).getTime();
+
 
         const hasConflict = bookings.some(b => {
-            // Only check for conflicts with Confirmed or Pending bookings
             if (b.status === 'Cancelled') return false; 
-            const existingStart = new Date(`${b.date}T${b.start_time}`).getTime();
-            const existingEnd = new Date(`${b.date}T${b.end_time}`).getTime();
+            const existingStart = parse(b.start_time, 'HH:mm:ss', new Date(b.date)).getTime();
+            const existingEnd = parse(b.end_time, 'HH:mm:ss', new Date(b.date)).getTime();
             return newBookingStart < existingEnd && newBookingEnd > existingStart;
         });
 
@@ -204,7 +232,7 @@ function MeetingRoomBookingComponent() {
         }
 
         try {
-            const newBooking: Partial<EnrichedBooking> = {
+            const { error } = await supabase.from('bookings').insert({
                 org_id: user.org_id,
                 user_id: user.id,
                 space_id: selectedRoom.id,
@@ -215,19 +243,18 @@ function MeetingRoomBookingComponent() {
                 status: 'Requires Approval',
                 purpose,
                 participants: participants.split(',').map(p => p.trim()).filter(Boolean),
-                userName: user.full_name,
+                user_name: user.full_name,
                 employee_id: user.employee_id || 'N/A',
                 contact: user.mobile_number || 'N/A',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            };
+            });
 
-            await addDoc(collection(db, 'bookings'), newBooking);
+            if (error) throw error;
+            
             toast({ title: "Booking Submitted!", description: "Your request has been sent for approval." });
             setIsBookingDialogOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast({ title: "Submission Failed", description: "There was an error submitting your booking.", variant: "destructive" });
+            toast({ title: "Submission Failed", description: error.message || "There was an error submitting your booking.", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -251,7 +278,6 @@ function MeetingRoomBookingComponent() {
                 description = `This slot is requested by ${eventToShow.userName || 'a user'} and is pending approval.`;
                 break;
             case 'Cancelled':
-                // This case should no longer be triggered from the calendar view
                 title = "Booking Cancelled";
                 description = "This booking has been cancelled.";
                 break;
@@ -404,7 +430,7 @@ function MeetingRoomBookingComponent() {
                          <div className="mt-4">
                              <h3 className="font-semibold mb-2">Amenities</h3>
                              <ul className="list-disc list-inside text-muted-foreground">
-                                 {selectedRoom.amenities.map(a => <li key={a}>{a}</li>)}
+                                 {selectedRoom.amenities?.map(a => <li key={a}>{a}</li>)}
                              </ul>
                          </div>
                         <AlertDialogFooter>

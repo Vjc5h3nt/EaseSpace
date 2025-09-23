@@ -4,8 +4,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { supabase } from '@/lib/supabase';
 import type { Booking, Cafeteria, MeetingRoom } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -34,29 +32,41 @@ export default function MyBookingsPage() {
     const fetchBookings = async (uid: string) => {
         setLoading(true);
         try {
-            const bookingsQuery = query(collection(db, 'bookings'), where('user_id', '==', uid));
-            const querySnapshot = await getDocs(bookingsQuery);
-            const fetchedBookings: EnrichedBooking[] = [];
+            const { data: bookingsData, error } = await supabase
+                .from('bookings')
+                .select('*')
+                .eq('user_id', uid);
 
-            for (const bookingDoc of querySnapshot.docs) {
-                const bookingData = { id: bookingDoc.id, ...bookingDoc.data() } as Booking;
-                let spaceName = "Unknown Space";
+            if (error) throw error;
+            if (!bookingsData) return;
 
-                if (bookingData.space_type && bookingData.space_id) {
-                    const spaceDocRef = doc(db, bookingData.space_type === 'cafeteria' ? 'cafeterias' : 'meetingRooms', bookingData.space_id);
-                    const spaceDocSnap = await getDoc(spaceDocRef);
-                    if (spaceDocSnap.exists()) {
-                        spaceName = (spaceDocSnap.data() as Cafeteria | MeetingRoom).name;
-                    }
-                }
-                
-                fetchedBookings.push({ ...bookingData, spaceName });
+            const spaceIds = [...new Set(bookingsData.map(b => b.space_id))];
+            const cafeIds = bookingsData.filter(b => b.space_type === 'cafeteria').map(b => b.space_id);
+            const roomIds = bookingsData.filter(b => b.space_type === 'meetingRoom').map(b => b.space_id);
+            
+            const spacesMap = new Map<string, string>();
+
+            if (cafeIds.length > 0) {
+                const { data: cafes, error: cafeError } = await supabase.from('cafeterias').select('id, name').in('id', cafeIds);
+                if (cafeError) throw cafeError;
+                cafes.forEach(c => spacesMap.set(c.id, c.name));
+            }
+
+            if (roomIds.length > 0) {
+                const { data: rooms, error: roomError } = await supabase.from('meeting_rooms').select('id, name').in('id', roomIds);
+                if (roomError) throw roomError;
+                rooms.forEach(r => spacesMap.set(r.id, r.name));
             }
             
-            setBookings(fetchedBookings);
-        } catch (error) {
+            const enrichedBookings = bookingsData.map(b => ({
+                ...b,
+                spaceName: spacesMap.get(b.space_id) || 'Unknown Space'
+            }));
+            
+            setBookings(enrichedBookings);
+        } catch (error: any) {
             console.error("Error fetching bookings:", error);
-            toast({ title: 'Error', description: 'Failed to fetch bookings.', variant: 'destructive' });
+            toast({ title: 'Error', description: error.message || 'Failed to fetch bookings.', variant: 'destructive' });
         } finally {
             setLoading(false);
         }
@@ -78,13 +88,18 @@ export default function MyBookingsPage() {
 
     const handleCancelBooking = async (bookingId: string) => {
         try {
-            const bookingRef = doc(db, 'bookings', bookingId);
-            await updateDoc(bookingRef, { status: 'Cancelled' });
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'Cancelled' })
+                .eq('id', bookingId);
+            
+            if (error) throw error;
+
             toast({ title: 'Success', description: 'Booking has been cancelled.' });
             if(user) fetchBookings(user.id); // Refresh bookings
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error cancelling booking:", error);
-            toast({ title: 'Error', description: 'Failed to cancel booking.', variant: 'destructive' });
+            toast({ title: 'Error', description: error.message || 'Failed to cancel booking.', variant: 'destructive' });
         }
     };
     
@@ -123,8 +138,9 @@ export default function MyBookingsPage() {
                     aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
                     bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
                 } else {
-                    aValue = a[sortConfig.key as keyof EnrichedBooking];
-                    bValue = b[sortConfig.key as keyof EnrichedBooking];
+                    const key = sortConfig.key as keyof EnrichedBooking;
+                    aValue = a[key];
+                    bValue = b[key];
                 }
                 
                 if (aValue === null || aValue === undefined) aValue = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
@@ -258,7 +274,7 @@ export default function MyBookingsPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                {booking.status === 'Confirmed' && (
+                                                {booking.status === 'Confirmed' && new Date(booking.date) >= new Date() && (
                                                     <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)}>
                                                         Cancel
                                                     </Button>

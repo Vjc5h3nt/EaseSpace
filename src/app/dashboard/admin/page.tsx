@@ -111,7 +111,7 @@ export default function AdminDashboardPage() {
         setStats({ totalBookings, activeUsers, avgDuration, confirmedBookings, cancelledBookings });
 
         // Process recent bookings
-        const sortedBookings = allBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const sortedBookings = allBookings.sort((a, b) => new Date(`${b.date}T${b.created_at}`).getTime() - new Date(`${a.date}T${a.created_at}`).getTime());
         const enrichedRecentBookings = sortedBookings.slice(0, 5).map(b => ({
             ...b,
             userName: usersMap.get(b.user_id || '') || 'Unknown User',
@@ -406,4 +406,5 @@ export default function AdminDashboardPage() {
   );
 }
 
+    
     

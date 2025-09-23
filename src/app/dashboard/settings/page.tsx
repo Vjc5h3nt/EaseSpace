@@ -10,10 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { User } from '@/lib/types';
-import { storage } from '@/lib/firebase';
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -63,15 +60,25 @@ export default function SettingsPage() {
         try {
             // Update profile picture if changed
             if (profilePic) {
-                // This part still uses Firebase storage, will be migrated
-                const storageRef = ref(storage, `profilePictures/${authUser.id}`);
-                await uploadBytes(storageRef, profilePic);
-                const downloadURL = await getDownloadURL(storageRef);
+                const fileExt = profilePic.name.split('.').pop();
+                const filePath = `${authUser.id}-${new Date().getTime()}.${fileExt}`;
                 
-                const { error: urlError } = await supabase.from('users').update({ photo_url: downloadURL }).eq('id', user.id);
+                const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(filePath, profilePic);
+
+                if (uploadError) throw uploadError;
+
+                const { data } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(filePath);
+
+                const publicUrl = data.publicUrl;
+
+                const { error: urlError } = await supabase.from('users').update({ photo_url: publicUrl }).eq('id', user.id);
                 if (urlError) throw urlError;
 
-                setProfilePicUrl(downloadURL);
+                setProfilePicUrl(publicUrl);
             }
 
             // Update display name
