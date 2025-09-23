@@ -71,7 +71,7 @@ export default function SettingsPage() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, [fetchUserData, router]);
+    }, []);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {

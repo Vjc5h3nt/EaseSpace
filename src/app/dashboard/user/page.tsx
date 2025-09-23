@@ -97,7 +97,7 @@ export default function UserDashboardPage() {
     );
 
     return () => authListener.subscription.unsubscribe();
-  }, [router, fetchSpaces]);
+  }, []);
   
   const handleLogout = async () => {
     try {
@@ -205,3 +205,5 @@ export default function UserDashboardPage() {
     </div>
   );
 }
+
+    

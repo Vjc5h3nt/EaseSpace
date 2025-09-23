@@ -115,7 +115,7 @@ function MeetingRoomBookingComponent() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [router, fetchRooms, toast]);
+      }, []);
 
     const fetchBookingsAndUsers = useCallback(async () => {
         if (!selectedRoom) return;
@@ -501,3 +501,5 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
+
+    

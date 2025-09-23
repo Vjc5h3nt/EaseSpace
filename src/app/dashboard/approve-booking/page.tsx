@@ -121,7 +121,7 @@ export default function ApproveBookingPage() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [fetchBookings, toast]);
+      }, []);
 
     const handleBookingAction = async (booking: EnrichedBooking, newStatus: 'Confirmed' | 'Cancelled') => {
         if (!orgId) return;

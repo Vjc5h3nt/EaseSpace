@@ -67,7 +67,7 @@ export default function UserProfilePage() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [router, fetchUserData]);
+      }, []);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -205,3 +205,5 @@ export default function UserProfilePage() {
         </div>
     );
 }
+
+    

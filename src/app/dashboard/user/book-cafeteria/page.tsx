@@ -99,7 +99,7 @@ function CafeteriaBookingComponent() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-    }, [router, cafeteriaId, fetchCafeteria]);
+    }, []);
 
     const availableSeatsAtSelectedTable = useMemo(() => {
         if (!selectedTable) return 0;
@@ -353,3 +353,5 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
+
+    

@@ -156,7 +156,7 @@ useEffect(() => {
     }
   );
   return () => authListener.subscription.unsubscribe();
-}, [fetchDashboardData, toast]);
+}, []);
 
 
   const handleEditLayout = (cafe: Cafeteria) => {

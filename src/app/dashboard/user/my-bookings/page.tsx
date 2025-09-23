@@ -116,7 +116,7 @@ export default function MyBookingsPage() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [router, fetchBookings, toast]);
+      }, []);
 
     const handleCancelBooking = async (bookingId: string) => {
         try {
@@ -329,3 +329,5 @@ export default function MyBookingsPage() {
         </div>
     );
 }
+
+    

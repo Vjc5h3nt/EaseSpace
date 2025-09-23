@@ -85,7 +85,7 @@ export default function UsersPage() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [fetchUsers, toast, router]);
+      }, []);
 
     const handleUserApproval = async (userId: string, newStatus: 'active' | 'rejected') => {
         try {

@@ -144,7 +144,7 @@ export default function AnalyticsPage() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, [fetchAnalyticsData, toast]);
+      }, []);
 
     if (loading) {
       return <div className="flex justify-center items-center h-full">Loading analytics...</div>
