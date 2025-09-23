@@ -12,7 +12,6 @@ import { PlusCircle, Trash2, Building, Utensils, AlertTriangle } from "lucide-re
 import type { Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import { cn } from '@/lib/utils';
 import { CafeteriaLayoutEditor } from '@/components/cafeteria-layout-editor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -24,8 +23,8 @@ export default function OnboardingPage() {
   const { toast } = useToast();
   
   // State for onboarding data
-  const [cafeterias, setCafeterias] = useState<(Omit<Cafeteria, 'id' | 'org_id'> & {id?: string})[]>([]);
-  const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'org_id'>[]>([]);
+  const [cafeterias, setCafeterias] = useState<(Omit<Cafeteria, 'id' | 'org_id' | 'created_at' | 'updated_at'> & {id?: string})[]>([]);
+  const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'org_id' | 'created_at' | 'updated_at'>[]>([]);
   
   // User and org state
   const [user, setUser] = useState<User | null>(null);
@@ -102,7 +101,9 @@ export default function OnboardingPage() {
           name: newRoomName,
           capacity: parseInt(newRoomCapacity),
           amenities: newRoomAmenities.split(",").map((a) => a.trim()),
-          imageUrl: '',
+          image_url: null,
+          floor: null,
+          location: null,
         },
       ]);
       setNewRoomName("");
@@ -122,17 +123,20 @@ export default function OnboardingPage() {
     }
 
     try {
-      // Still using firestore for data, will be migrated next
-      const { error: cafeError } = await supabase.from('cafeterias').insert(
-          cafeterias.map(c => ({...c, org_id: orgId}))
-      );
-      if(cafeError) throw cafeError;
+      if (cafeterias.length > 0) {
+        const { error: cafeError } = await supabase.from('cafeterias').insert(
+            cafeterias.map(c => ({...c, org_id: orgId}))
+        );
+        if(cafeError) throw cafeError;
+      }
 
-      const { error: roomError } = await supabase.from('meeting_rooms').insert(
-          meetingRooms.map(r => ({...r, org_id: orgId}))
-      );
-      if(roomError) throw roomError;
-
+      if (meetingRooms.length > 0) {
+        const { error: roomError } = await supabase.from('meeting_rooms').insert(
+            meetingRooms.map(r => ({...r, org_id: orgId}))
+        );
+        if(roomError) throw roomError;
+      }
+      
       // Mark onboarding as complete for the user
       const { error: userUpdateError } = await supabase.from('users').update({ onboarding_complete: true }).eq('id', user.id);
       if(userUpdateError) throw userUpdateError;
@@ -259,7 +263,7 @@ export default function OnboardingPage() {
                     <div key={index} className="flex items-center justify-between rounded-md border bg-card p-3">
                       <div>
                         <p className="font-medium">{room.name} (Capacity: {room.capacity})</p>
-                        <p className="text-sm text-muted-foreground">{room.amenities.join(', ')}</p>
+                        <p className="text-sm text-muted-foreground">{room.amenities?.join(', ')}</p>
                       </div>
                       <Button variant="ghost" size="icon" onClick={() => removeMeetingRoom(index)}>
                         <Trash2 className="h-4 w-4" />
@@ -300,5 +304,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
-    

@@ -8,8 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Check, X } from 'lucide-react';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -23,10 +21,16 @@ export default function UsersPage() {
     const fetchUsers = async (orgId: string) => {
         if (!orgId) return;
         setLoading(true);
-        const usersQuery = query(collection(db, 'users'), where('org_id', '==', orgId));
-        const querySnapshot = await getDocs(usersQuery);
-        const fetchedUsers = querySnapshot.docs.map(doc => ({...doc.data(), id: doc.id} as User));
-        setUsers(fetchedUsers);
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('org_id', orgId);
+
+        if (error) {
+            toast({ title: 'Error fetching users', description: error.message, variant: 'destructive' });
+        } else {
+            setUsers(data || []);
+        }
         setLoading(false);
     };
 
@@ -39,9 +43,12 @@ export default function UsersPage() {
                 .select('org_id')
                 .eq('id', session.user.id)
                 .single();
-              if (user) {
+              if (user && user.org_id) {
                 setOrgId(user.org_id);
                 fetchUsers(user.org_id);
+              } else if (error) {
+                setLoading(false);
+                toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
               }
             } else {
               setLoading(false);
@@ -49,17 +56,22 @@ export default function UsersPage() {
           }
         );
         return () => authListener.subscription.unsubscribe();
-      }, []);
+      }, [toast]);
 
     const handleUserApproval = async (userId: string, newStatus: 'active' | 'rejected') => {
         try {
-            const userRef = doc(db, 'users', userId);
-            await updateDoc(userRef, { status: newStatus });
+            const { error } = await supabase
+                .from('users')
+                .update({ status: newStatus })
+                .eq('id', userId);
+            
+            if (error) throw error;
+
             toast({ title: 'Success', description: `User status has been updated.` });
             if (orgId) fetchUsers(orgId); // Refresh users list
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating user status:', error);
-            toast({ title: 'Error', description: 'Failed to update user status.', variant: 'destructive' });
+            toast({ title: 'Error', description: error.message || 'Failed to update user status.', variant: 'destructive' });
         }
     };
 
@@ -168,5 +180,3 @@ function UserTable({ title, users, loading, showActions = false, onAction }: Use
         </Card>
     );
 }
-
-    
