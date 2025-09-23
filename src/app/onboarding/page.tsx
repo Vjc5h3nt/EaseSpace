@@ -23,8 +23,8 @@ export default function OnboardingPage() {
   const { toast } = useToast();
   
   // State for onboarding data
-  const [cafeterias, setCafeterias] = useState<(Omit<Cafeteria, 'id' | 'org_id' | 'created_at' | 'updated_at'> & {id?: string})[]>([]);
-  const [meetingRooms, setMeetingRooms] = useState<(Omit<MeetingRoom, 'id' | 'org_id' | 'created_at' | 'updated_at'> & { id?: string })[]>([]);
+  const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
+  const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
   
   // User and org state
   const [user, setUser] = useState<User | null>(null);
@@ -37,9 +37,30 @@ export default function OnboardingPage() {
   const [newRoomCapacity, setNewRoomCapacity] = useState('');
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
 
-  const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
+  const [selectedCafeteria, setSelectedCafeteria] = useState<Cafeteria | null>(null);
   const [currentLayout, setCurrentLayout] = useState<TableLayout[]>([]);
   
+  const fetchSpaces = useCallback(async (currentOrgId: string) => {
+    if (!currentOrgId) return;
+    try {
+      const [
+        { data: cafes, error: cafeError },
+        { data: rooms, error: roomError },
+      ] = await Promise.all([
+        supabase.from('cafeterias').select('*').eq('org_id', currentOrgId),
+        supabase.from('meeting_rooms').select('*').eq('org_id', currentOrgId),
+      ]);
+
+      if (cafeError) throw cafeError;
+      if (roomError) throw roomError;
+
+      setCafeterias(cafes as Cafeteria[] || []);
+      setMeetingRooms(rooms || []);
+    } catch (error: any) {
+      toast({ title: "Error Fetching Spaces", description: error.message, variant: 'destructive' });
+    }
+  }, [toast]);
+
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -64,7 +85,10 @@ export default function OnboardingPage() {
 
           if (userData) {
             setUser(userData);
-            setOrgId(userData.org_id);
+            if (userData.org_id) {
+                setOrgId(userData.org_id);
+                fetchSpaces(userData.org_id);
+            }
             if (userData.onboarding_complete) {
               router.push('/dashboard/admin');
             }
@@ -78,55 +102,85 @@ export default function OnboardingPage() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [router, toast]);
+  }, [router, toast, fetchSpaces]);
   
-  const addCafeteria = () => {
+  const addCafeteria = async () => {
     if (!newCafeteriaName.trim()) {
         toast({ title: "Cafeteria name required", description: "Please enter a name for the cafeteria.", variant: "destructive" });
         return;
     }
-    const newCafe = { name: newCafeteriaName.trim(), layout: [], capacity: 0 };
-    setCafeterias([...cafeterias, newCafe]);
-    setNewCafeteriaName("");
+    if (!orgId) return;
+
+    try {
+      const { data, error } = await supabase.from('cafeterias').insert({
+        name: newCafeteriaName.trim(),
+        org_id: orgId,
+        layout: [],
+        capacity: 0,
+      }).select().single();
+
+      if (error) throw error;
+      setCafeterias(prev => [...prev, data as Cafeteria]);
+      setNewCafeteriaName("");
+      toast({ title: "Cafeteria Added!"});
+    } catch (error: any) {
+       toast({ title: "Error Adding Cafeteria", description: error.message, variant: "destructive"});
+    }
   };
 
-  const removeCafeteria = (index: number) => {
-    setCafeterias(cafeterias.filter((_, i) => i !== index));
+  const removeCafeteria = async (id: string) => {
+    try {
+        const { error } = await supabase.from('cafeterias').delete().eq('id', id);
+        if (error) throw error;
+        setCafeterias(prev => prev.filter(c => c.id !== id));
+        toast({ title: "Cafeteria Removed"});
+    } catch(error: any) {
+        toast({ title: "Error Removing Cafeteria", description: error.message, variant: "destructive"});
+    }
   };
   
   // Meeting Room Management
-  const addMeetingRoom = () => {
-    const name = newRoomName.trim();
-    if (!name) {
-        toast({ title: "Meeting room name required", description: "Please enter a name for the meeting room.", variant: "destructive" });
+  const addMeetingRoom = async () => {
+    if (!newRoomName.trim()) {
+        toast({ title: "Meeting room name required", variant: "destructive" });
         return;
     }
-    
+    if (!orgId) return;
+
     const capacityNum = parseInt(newRoomCapacity, 10);
     if (isNaN(capacityNum) || capacityNum < 0) {
       toast({ title: "Invalid Capacity", description: "Please enter a valid, non-negative number for capacity.", variant: "destructive" });
       return;
     }
 
-    setMeetingRooms([
-      ...meetingRooms,
-      {
-        id: `mr-${Date.now()}`,
-        name: name,
-        capacity: capacityNum,
-        amenities: newRoomAmenities.split(",").map((a) => a.trim()).filter(Boolean),
-        image_url: null,
-        floor: null,
-        location: null,
-      },
-    ]);
-    setNewRoomName("");
-    setNewRoomCapacity('');
-    setNewRoomAmenities("");
+    try {
+        const { data, error } = await supabase.from('meeting_rooms').insert({
+            name: newRoomName.trim(),
+            capacity: capacityNum,
+            amenities: newRoomAmenities.split(",").map((a) => a.trim()).filter(Boolean),
+            org_id: orgId,
+        }).select().single();
+
+        if (error) throw error;
+        setMeetingRooms(prev => [...prev, data]);
+        setNewRoomName("");
+        setNewRoomCapacity('');
+        setNewRoomAmenities("");
+        toast({ title: "Meeting Room Added!"});
+    } catch (error: any) {
+        toast({ title: "Error Adding Meeting Room", description: error.message, variant: "destructive"});
+    }
   };
   
-  const removeMeetingRoom = (index: number) => {
-    setMeetingRooms(meetingRooms.filter((_, i) => i !== index));
+  const removeMeetingRoom = async (id: string) => {
+    try {
+        const { error } = await supabase.from('meeting_rooms').delete().eq('id', id);
+        if (error) throw error;
+        setMeetingRooms(prev => prev.filter(r => r.id !== id));
+        toast({ title: "Meeting Room Removed" });
+    } catch (error: any) {
+        toast({ title: "Error Removing Room", description: error.message, variant: "destructive" });
+    }
   };
   
   const finishOnboarding = async () => {
@@ -141,19 +195,6 @@ export default function OnboardingPage() {
     }
 
     try {
-      if (cafeterias.length > 0) {
-        const cafesToInsert = cafeterias.map(({ id, ...rest }) => ({...rest, org_id: orgId }));
-        const { error: cafeError } = await supabase.from('cafeterias').insert(cafesToInsert);
-        if(cafeError) throw cafeError;
-      }
-
-      if (meetingRooms.length > 0) {
-        const roomsToInsert = meetingRooms.map(({ id, ...rest }) => ({...rest, org_id: orgId }));
-        const { error: roomError } = await supabase.from('meeting_rooms').insert(roomsToInsert);
-        if(roomError) throw roomError;
-      }
-      
-      // Mark onboarding as complete for the user
       const { error: userUpdateError } = await supabase.from('users').update({ onboarding_complete: true }).eq('id', user.id);
       if(userUpdateError) throw userUpdateError;
       
@@ -173,31 +214,32 @@ export default function OnboardingPage() {
   };
 
 
-  const handleSaveLayout = () => {
-    if (selectedCafeteriaIndex === null) return;
+  const handleSaveLayout = async () => {
+    if (!selectedCafeteria) return;
     
-    setCafeterias(currentCafes => {
-        const updatedCafes = [...currentCafes];
-        const cafeToUpdate = updatedCafes[selectedCafeteriaIndex];
-        if (cafeToUpdate) {
-            cafeToUpdate.layout = currentLayout;
-            cafeToUpdate.capacity = currentLayout.length * 4;
-        }
-        return updatedCafes;
-    });
+    try {
+        const { data, error } = await supabase.from('cafeterias').update({
+            layout: currentLayout,
+            capacity: currentLayout.length * 4
+        }).eq('id', selectedCafeteria.id).select().single();
 
-    toast({title: "Layout Updated", description: "Layout changes are saved temporarily. Finish onboarding to save permanently."})
-    setSelectedCafeteriaIndex(null);
+        if (error) throw error;
+
+        setCafeterias(currentCafes => currentCafes.map(c => c.id === selectedCafeteria.id ? data as Cafeteria : c));
+        toast({title: "Layout Updated", description: `Layout for ${selectedCafeteria.name} saved.`});
+        setSelectedCafeteria(null);
+    } catch (error: any) {
+         toast({ title: "Error Saving Layout", description: error.message, variant: "destructive" });
+    }
   }
 
-  const handleEditLayout = (index: number) => {
-    setSelectedCafeteriaIndex(index);
-    setCurrentLayout(cafeterias[index].layout || []);
+  const handleEditLayout = (cafe: Cafeteria) => {
+    setSelectedCafeteria(cafe);
+    setCurrentLayout(cafe.layout || []);
   }
   
-  const isLayoutEditorOpen = selectedCafeteriaIndex !== null;
-  const selectedCafeteria = isLayoutEditorOpen ? cafeterias[selectedCafeteriaIndex!] : null;
-
+  const isLayoutEditorOpen = selectedCafeteria !== null;
+  
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-4xl">
@@ -238,12 +280,12 @@ export default function OnboardingPage() {
                     <Label>Your Cafeterias</Label>
                     {cafeterias.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No cafeterias added yet.</p>}
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                      {cafeterias.map((cafe, index) => (
-                        <div key={index} className={cn("flex items-center justify-between rounded-md border p-2")} >
+                      {cafeterias.map((cafe) => (
+                        <div key={cafe.id} className={cn("flex items-center justify-between rounded-md border p-2")} >
                           <span>{cafe.name}</span>
                           <div className='flex items-center gap-2'>
-                            <Button variant="outline" size="sm" onClick={() => handleEditLayout(index)}>Edit Layout</Button>
-                            <Button variant="ghost" size="icon" onClick={() => removeCafeteria(index)}>
+                            <Button variant="outline" size="sm" onClick={() => handleEditLayout(cafe)}>Edit Layout</Button>
+                            <Button variant="ghost" size="icon" onClick={() => removeCafeteria(cafe.id)}>
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -275,13 +317,13 @@ export default function OnboardingPage() {
                 </div>
                  <div className="space-y-2 border rounded-md p-2 max-h-80 overflow-y-auto">
                   {meetingRooms.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">No meeting rooms added yet.</p>}
-                  {meetingRooms.map((room, index) => (
-                    <div key={room.id || index} className="flex items-center justify-between rounded-md border bg-card p-3">
+                  {meetingRooms.map((room) => (
+                    <div key={room.id} className="flex items-center justify-between rounded-md border bg-card p-3">
                       <div>
                         <p className="font-medium">{room.name} (Capacity: {room.capacity})</p>
                         <p className="text-sm text-muted-foreground">{room.amenities?.join(', ')}</p>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => removeMeetingRoom(index)}>
+                      <Button variant="ghost" size="icon" onClick={() => removeMeetingRoom(room.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -296,7 +338,7 @@ export default function OnboardingPage() {
         </CardContent>
       </Card>
       
-      <Dialog open={isLayoutEditorOpen} onOpenChange={(isOpen) => { if (!isOpen) setSelectedCafeteriaIndex(null); }}>
+      <Dialog open={isLayoutEditorOpen} onOpenChange={(isOpen) => { if (!isOpen) setSelectedCafeteria(null); }}>
         <DialogContent className="max-w-4xl">
             {selectedCafeteria && (
                 <>
@@ -304,7 +346,7 @@ export default function OnboardingPage() {
                         <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
                     </DialogHeader>
                     <CafeteriaLayoutEditor 
-                        cafeteria={{...selectedCafeteria, id: `temp-${selectedCafeteriaIndex}`}} 
+                        cafeteria={selectedCafeteria} 
                         onLayoutChange={setCurrentLayout}
                     />
                     <DialogFooter>
@@ -320,5 +362,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
-    
