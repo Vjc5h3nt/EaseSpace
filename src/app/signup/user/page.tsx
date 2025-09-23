@@ -12,9 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
-import { doc, setDoc, collection, getDocs } from "firebase/firestore";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,13 +33,16 @@ export default function UserSignupPage() {
 
   useEffect(() => {
     const fetchOrgs = async () => {
-      const orgsCollection = collection(db, "organizations");
-      const orgsSnapshot = await getDocs(orgsCollection);
-      const orgsList = orgsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization));
-      setOrganizations(orgsList);
+      const { data, error } = await supabase.from("organizations").select("id, name, org_id");
+      if (error) {
+        console.error("Error fetching organizations:", error);
+        toast({ title: "Error", description: "Could not fetch organizations.", variant: "destructive" });
+      } else if (data) {
+        setOrganizations(data);
+      }
     };
     fetchOrgs();
-  }, []);
+  }, [toast]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -55,28 +56,33 @@ export default function UserSignupPage() {
   const handleSignup = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
+      const { data, error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+      });
 
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
+      if (error) throw error;
+      if (!data.user) throw new Error("Signup successful, but no user data returned.");
+
+      // Now insert into the public users table
+      const { error: profileError } = await supabase.from("users").insert({
+        id: data.user.id,
         org_id: values.orgId,
-        fullName: values.fullName,
+        full_name: values.fullName,
         email: values.email,
         role: "user",
-        status: "pending", // User starts as pending, admin must approve.
+        status: "pending",
       });
-      
-      // Send verification email
-      await sendEmailVerification(user);
+
+      if (profileError) throw profileError;
 
       toast({
         title: "Request Sent!",
-        description: "Please verify your email, then wait for admin approval to log in.",
+        description: "Please check your email to verify your account. You can log in after an admin approves your request.",
         duration: 7000,
       });
-      
-      await auth.signOut();
+
+      await supabase.auth.signOut();
       router.push("/login");
 
     } catch (error: any) {
@@ -122,7 +128,7 @@ export default function UserSignupPage() {
                       </FormControl>
                       <SelectContent>
                         {organizations.map(org => (
-                          <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                          <SelectItem key={org.id} value={org.org_id}>{org.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

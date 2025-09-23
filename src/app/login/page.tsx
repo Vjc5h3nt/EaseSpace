@@ -10,11 +10,9 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { auth, db } from "@/lib/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
 import React from "react";
 import { Logo } from "@/components/logo";
 
@@ -39,30 +37,38 @@ export default function UserLoginPage() {
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: values.email,
+          password: values.password,
+      });
 
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (!userDoc.exists()) {
-         toast({ title: "Login Failed", description: "User data not found.", variant: "destructive" });
-         await auth.signOut();
-         setIsLoading(false);
-         return;
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Login failed, please try again.");
+
+      // Email verification check
+      if (!authData.user.email_confirmed_at) {
+          toast({ title: "Verification Required", description: "Please verify your email address before logging in. Check your inbox for a verification link.", variant: "destructive", duration: 7000 });
+          await supabase.auth.signOut();
+          setIsLoading(false);
+          return;
       }
       
-      const userData = userDoc.data();
-
-      // Email verification check for BOTH admin and user roles
-      if (!user.emailVerified) {
-          toast({ title: "Verification Required", description: "Please verify your email address before logging in. Check your inbox for a verification link.", variant: "destructive", duration: 7000 });
-          await auth.signOut();
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+        
+      if (userError || !userData) {
+          toast({ title: "Login Failed", description: "User data not found.", variant: "destructive" });
+          await supabase.auth.signOut();
           setIsLoading(false);
           return;
       }
 
       if (userData.role === 'admin') {
          toast({ title: "Success", description: "Logged in successfully." });
-         if (userData.onboardingComplete) {
+         if (userData.onboarding_complete) {
             router.push("/dashboard/admin");
          } else {
             router.push("/onboarding");
@@ -70,11 +76,11 @@ export default function UserLoginPage() {
       } else { // It's a 'user'
           if (userData.status === 'pending') {
               toast({ title: "Approval Pending", description: "Your account is pending approval from the admin.", variant: "destructive"});
-              await auth.signOut();
+              await supabase.auth.signOut();
           } else if (userData.status === 'rejected') {
               toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
-              await auth.signOut();
-          } else {
+              await supabase.auth.signOut();
+          } else { // Status is 'active'
               toast({ title: "Success", description: "Logged in successfully." });
               router.push("/dashboard/user"); 
           }
@@ -83,7 +89,7 @@ export default function UserLoginPage() {
     } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: "Please check your email and password.",
+        description: error.message || "Please check your email and password.",
         variant: "destructive",
       });
     } finally {

@@ -12,9 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
-import { doc, setDoc, addDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home, MailCheck } from "lucide-react";
 
@@ -45,9 +43,17 @@ export default function SignupPage() {
     setIsLoading(true);
     try {
       // 1. Check if organization name already exists
-      const orgQuery = query(collection(db, "organizations"), where("name", "==", values.organizationName));
-      const orgQuerySnapshot = await getDocs(orgQuery);
-      if (!orgQuerySnapshot.empty) {
+      const { data: existingOrgs, error: orgCheckError } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("name", values.organizationName)
+        .single();
+      
+      if (orgCheckError && orgCheckError.code !== 'PGRST116') { // PGRST116: "exact-match" not found, which is good
+          throw orgCheckError;
+      }
+      
+      if (existingOrgs) {
         toast({
           title: "Organization Exists",
           description: "An organization with this name already exists. Please choose a different name.",
@@ -57,32 +63,37 @@ export default function SignupPage() {
         return;
       }
 
-      // 2. Create the organization
-      const orgRef = await addDoc(collection(db, "organizations"), {
-        name: values.organizationName,
-        createdAt: new Date(),
-      });
-      const org_id = orgRef.id;
-      
-      await setDoc(orgRef, { org_id: org_id }, { merge: true });
-
-      // 3. Create the admin user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, values.adminEmail, values.password);
-      const user = userCredential.user;
-
-      // 4. Create the user document in Firestore, linking to the organization
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        org_id: org_id,
-        fullName: values.adminFullName,
+      // 2. Create the admin user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: values.adminEmail,
-        role: "admin", // Assign admin role
-        status: 'active', // Admins are active by default
-        onboardingComplete: false,
+        password: values.password,
       });
 
-      // 5. Send verification email
-      await sendEmailVerification(user);
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("User creation failed.");
+
+      // 3. Create the organization in the organizations table
+      const { data: orgData, error: orgInsertError } = await supabase
+        .from("organizations")
+        .insert({ name: values.organizationName })
+        .select()
+        .single();
+      
+      if (orgInsertError) throw orgInsertError;
+      if (!orgData) throw new Error("Organization creation failed.");
+      
+      // 4. Create the user profile in the users table
+      const { error: userInsertError } = await supabase.from("users").insert({
+        id: authData.user.id,
+        org_id: orgData.org_id,
+        full_name: values.adminFullName,
+        email: values.adminEmail,
+        role: "admin",
+        status: "active",
+        onboarding_complete: false,
+      });
+
+      if (userInsertError) throw userInsertError;
       
       toast({
         title: "Account Created!",

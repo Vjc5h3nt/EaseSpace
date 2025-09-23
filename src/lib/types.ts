@@ -1,77 +1,23 @@
 
 import type { Timestamp } from "firebase/firestore";
+import type { Database } from "./database.types";
 
-export interface Organization {
-    id: string;
-    name: string;
-    org_id: string;
-}
+export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 
-export interface User {
-  uid: string;
-  org_id: string;
-  email: string;
-  fullName: string;
-  role: 'admin' | 'user';
-  status: 'active' | 'pending' | 'rejected';
-  mobileNumber?: string;
-  employeeId?: string;
-  onboardingComplete?: boolean;
-  photoURL?: string;
-}
+export type User = Database["public"]["Tables"]["users"]["Row"];
 
-export interface TableLayout {
+export type TableLayout = {
     id: string;
     x: number;
     y: number;
-}
+};
 
-export interface Cafeteria {
-    id: string;
-    org_id: string;
-    name: string;
-    capacity: number;
-    layout: TableLayout[];
-}
+export type Cafeteria = Omit<Database["public"]["Tables"]["cafeterias"]["Row"], "layout"> & {
+  layout: TableLayout[];
+};
 
-export interface MeetingRoom {
-    id: string;
-    org_id: string;
-    name: string;
-    capacity: number;
-    amenities: string[];
-    floor?: number;
-    location?: string; // e.g. "Tower B"
-    imageUrl?: string;
-}
+export type MeetingRoom = Database["public"]["Tables"]["meeting_rooms"]["Row"];
 
-export interface Booking {
-    id: string;
-    org_id: string;
-    userId: string;
-    spaceId: string;
-    spaceType: 'cafeteria' | 'meetingRoom';
-    date: string; // YYYY-MM-DD
-    startTime: string; // HH:mm
-    endTime: string; // HH:mm
-    status: 'Confirmed' | 'Pending' | 'Cancelled' | 'Requires Approval';
-    tableId?: string; // For cafeteria bookings
-    seatCount?: number; // For cafeteria bookings
-    createdAt: Timestamp;
-    purpose?: string;
-    userName?: string;
-    participants?: string[];
-    employeeId?: string;
-    contact?: string;
-}
+export type Booking = Database["public"]["Tables"]["bookings"]["Row"];
 
-export interface Analytics {
-    id: string;
-    org_id: string;
-    date: string; // YYYY-MM-DD
-    utilization: {
-        cafeteria: number; // percentage
-        meetingRoom: number; // percentage
-    };
-    noShowCount: number;
-}
+export type Analytics = Database["public"]["Tables"]["analytics"]["Row"];
