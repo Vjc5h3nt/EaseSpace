@@ -299,14 +299,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      handle_new_user: {
-        Args: Record<PropertyKey, never>
-        Returns: Record<PropertyKey, never>
-      }
-      update_updated_at_column: {
-        Args: Record<PropertyKey, never>
-        Returns: Record<PropertyKey, never>
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
@@ -398,3 +391,5 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
     ? PublicSchema["Enums"][PublicEnumNameOrOptions]
     : never
+
+    
