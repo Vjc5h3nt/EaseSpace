@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -25,7 +24,6 @@ export default function UserProfilePage() {
     const [loading, setLoading] = useState(true);
 
     const fetchUserData = useCallback(async (userId: string) => {
-        setLoading(true);
         const { data: userData, error } = await supabase
             .from('users')
             .select('*')
@@ -33,7 +31,7 @@ export default function UserProfilePage() {
             .limit(1)
             .maybeSingle();
 
-        if (error || !userData) {
+        if (error) {
             console.error("Error fetching user data:", error);
             toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
             setLoading(false);
@@ -41,8 +39,12 @@ export default function UserProfilePage() {
             return;
         }
         
-        setUser(userData);
-        setProfilePicUrl(userData.photo_url || '');
+        if (userData) {
+            setUser(userData);
+            setProfilePicUrl(userData.photo_url || '');
+        } else {
+            setLoading(true);
+        }
         
         setLoading(false);
     }, [router, toast]);
@@ -50,7 +52,6 @@ export default function UserProfilePage() {
     useEffect(() => {
         let isMounted = true;
         const initializePage = async () => {
-            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
                 if (isMounted) {

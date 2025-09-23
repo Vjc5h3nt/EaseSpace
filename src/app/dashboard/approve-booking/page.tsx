@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -79,7 +78,6 @@ export default function ApproveBookingPage() {
     
     useEffect(() => {
         const initializePage = async () => {
-            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               const { data: user, error } = await supabase
@@ -89,7 +87,7 @@ export default function ApproveBookingPage() {
                 .limit(1)
                 .maybeSingle();
 
-              if (error || !user) {
+              if (error) {
                 console.error("Error fetching user data:", error);
                 toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
                 setLoading(false);
@@ -97,9 +95,11 @@ export default function ApproveBookingPage() {
                 return;
               }
               
-              if (user.org_id) {
+              if (user?.org_id) {
                 setOrgId(user.org_id);
                 await fetchBookings(user.org_id);
+              } else if (!user) {
+                setLoading(true);
               } else {
                 setLoading(false);
                 toast({title: "Error", description: "User organization not found. Please relogin.", variant: "destructive"});
@@ -285,5 +285,3 @@ function BookingTable({ title, bookings, showActions, onAction, loading }: Booki
         </Card>
     )
 }
-
-    

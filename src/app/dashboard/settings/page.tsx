@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -26,7 +25,6 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
     
     const fetchUserData = useCallback(async (currentUserId: string) => {
-        setLoading(true);
         const { data: userData, error } = await supabase
             .from('users')
             .select('*')
@@ -34,17 +32,21 @@ export default function SettingsPage() {
             .limit(1)
             .maybeSingle();
 
-        if (error || !userData) {
+        if (error) {
             toast({ title: 'Error', description: 'Could not fetch your profile data.', variant: 'destructive' });
             router.push('/login');
-            setLoading(false);
             return;
         }
 
-        setUser(userData);
-        setDisplayName(userData.full_name || '');
-        setEmail(userData.email || '');
-        setProfilePicUrl(userData.photo_url || '');
+        if (userData) {
+            setUser(userData);
+            setDisplayName(userData.full_name || '');
+            setEmail(userData.email || '');
+            setProfilePicUrl(userData.photo_url || '');
+        } else {
+            // This might happen in a race condition, so we just wait for the auth listener to maybe fix it.
+            console.warn("User data not found initially.");
+        }
         
         setLoading(false);
     }, [toast, router]);
@@ -197,6 +199,3 @@ export default function SettingsPage() {
             </Card>
         </div>
     );
-}
-
-    

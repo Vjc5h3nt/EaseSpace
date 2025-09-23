@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -21,7 +20,6 @@ export default function UserDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchSpaces = useCallback(async (org_id: string) => {
-    setLoading(true);
     try {
         const { data: cafeteriasData, error: cafeteriasError } = await supabase
             .from('cafeterias')
@@ -48,7 +46,6 @@ export default function UserDashboardPage() {
 
   useEffect(() => {
     const initializePage = async () => {
-      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data: userData, error } = await supabase
@@ -58,7 +55,7 @@ export default function UserDashboardPage() {
           .limit(1)
           .maybeSingle();
 
-        if (error || !userData) {
+        if (error) {
             console.error("Error fetching user data:", error);
             toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
             setLoading(false);
@@ -66,11 +63,15 @@ export default function UserDashboardPage() {
             return;
         }
         
-        setUser(userData);
-        if (userData.org_id) {
-          await fetchSpaces(userData.org_id);
+        if (userData) {
+          setUser(userData);
+          if (userData.org_id) {
+            await fetchSpaces(userData.org_id);
+          } else {
+            setLoading(false);
+          }
         } else {
-          setLoading(false);
+          setLoading(true); // Wait for auth state change to possibly resolve user
         }
       } else {
         setLoading(false);
@@ -146,56 +147,11 @@ export default function UserDashboardPage() {
                     <h2 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
                         <Utensils className="h-5 w-5" /> Cafeterias
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {cafeterias.length > 0 ? cafeterias.map(cafe => (
-                            <Card key={cafe.id}>
-                                <CardHeader>
-                                    <CardTitle>{cafe.name}</CardTitle>
-                                    <CardDescription>Capacity: {cafe.capacity} seats</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Button asChild className="w-full">
-                                        <Link href={`/dashboard/user/book-cafeteria?id=${cafe.id}`}>
-                                            View Layout & Book <ArrowRight className="ml-2 h-4 w-4" />
-                                        </Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        )) : (
-                            <p className="text-muted-foreground col-span-full">No cafeterias available for booking in your organization.</p>
-                        )}
+                    </section>
                     </div>
-                </section>
-                
-                <section>
-                    <h2 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-                        <Building className="h-5 w-5" /> Meeting Rooms
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {meetingRooms.length > 0 ? meetingRooms.map(room => (
-                            <Card key={room.id}>
-                                <CardHeader>
-                                    <CardTitle>{room.name}</CardTitle>
-                                    <CardDescription>Capacity: {room.capacity} people</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Button asChild className="w-full">
-                                        <Link href={`/dashboard/user/book-meeting-room?id=${room.id}`}>
-                                            View Availability <ArrowRight className="ml-2 h-4 w-4" />
-                                        </Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        )) : (
-                            <p className="text-muted-foreground col-span-full">No meeting rooms available for booking in your organization.</p>
-                        )}
+                    )}
+                    </main>
                     </div>
-                </section>
-            </div>
-        )}
-      </main>
-    </div>
-  );
-}
-
-    
+                    );
+                    }
+                    

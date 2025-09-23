@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -38,7 +37,6 @@ export default function UsersPage() {
 
     useEffect(() => {
         const initializePage = async () => {
-            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
                 const { data: user, error } = await supabase
@@ -48,7 +46,7 @@ export default function UsersPage() {
                     .limit(1)
                     .maybeSingle();
 
-                if (error || !user) {
+                if (error) {
                     console.error("Error fetching user data:", error);
                     toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
                     setLoading(false);
@@ -56,9 +54,11 @@ export default function UsersPage() {
                     return;
                 }
                 
-                if (user.org_id) {
+                if (user?.org_id) {
                     setOrgId(user.org_id);
                     await fetchUsers(user.org_id);
+                } else if (!user) {
+                    setLoading(true);
                 } else {
                     toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
                     setLoading(false);
@@ -204,5 +204,3 @@ function UserTable({ title, users, loading, showActions = false, onAction }: Use
         </Card>
     );
 }
-
-    

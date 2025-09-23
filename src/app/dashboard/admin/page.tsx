@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -111,7 +110,6 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     const initializePage = async () => {
-      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data: user, error } = await supabase
@@ -121,7 +119,7 @@ export default function AdminDashboardPage() {
           .limit(1)
           .maybeSingle();
 
-        if (error || !user) {
+        if (error) {
           console.error("Error fetching user data:", error);
           toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
           setLoading(false);
@@ -129,9 +127,12 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        if (user.org_id) {
+        if (user?.org_id) {
           setOrgId(user.org_id);
           await fetchDashboardData(user.org_id);
+        } else if (!user) {
+           // User might not be in the table yet, wait for auth state change
+           setLoading(true);
         } else {
           setLoading(false);
           toast({title: "Error", description: "User organization not found. Please relogin.", variant: "destructive"});
@@ -431,6 +432,3 @@ export default function AdminDashboardPage() {
         </section>
     </div>
   );
-}
-
-    

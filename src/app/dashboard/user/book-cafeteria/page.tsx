@@ -67,7 +67,6 @@ function CafeteriaBookingComponent() {
                 return;
             }
             
-            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               const { data: userData, error } = await supabase
@@ -77,16 +76,20 @@ function CafeteriaBookingComponent() {
                 .limit(1)
                 .maybeSingle();
               
-              if (error || !userData) {
+              if (error) {
                 console.error("Error fetching user data:", error);
                 toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
                 setLoading(false);
                 router.push('/login');
                 return;
               }
-
-              setUser(userData);
-              await fetchCafeteria(cafeteriaId);
+              
+              if (userData) {
+                setUser(userData);
+                await fetchCafeteria(cafeteriaId);
+              } else {
+                  setLoading(true);
+              }
               
             } else {
               setLoading(false);
@@ -353,10 +356,4 @@ function CafeteriaBookingComponent() {
 
 export default function CafeteriaBookingPage() {
     return (
-        <Suspense fallback={<div>Loading...</div>}>
-            <CafeteriaBookingComponent />
-        </Suspense>
-    )
-}
-
-    
+        <Suspense fallback

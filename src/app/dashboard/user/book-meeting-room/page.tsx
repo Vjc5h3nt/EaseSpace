@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Suspense } from 'react';
@@ -49,7 +48,6 @@ function MeetingRoomBookingComponent() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchRooms = useCallback(async (orgId: string) => {
-        setLoading(true);
         const { data, error } = await supabase.from('meeting_rooms').select('*').eq('org_id', orgId);
         if (error) {
             toast({ title: "Error", description: "Could not fetch meeting rooms.", variant: "destructive" });
@@ -100,7 +98,6 @@ function MeetingRoomBookingComponent() {
 
     useEffect(() => {
         const initializePage = async () => {
-            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             const currentUser = session?.user;
             if (currentUser) {
@@ -111,7 +108,7 @@ function MeetingRoomBookingComponent() {
                 .limit(1)
                 .maybeSingle();
 
-              if (error || !userData) {
+              if (error) {
                 console.error("Error fetching user data:", error);
                 toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
                 setLoading(false);
@@ -119,9 +116,11 @@ function MeetingRoomBookingComponent() {
                 return;
               }
               
-              if (userData.org_id) {
+              if (userData?.org_id) {
                 setUser(userData);
                 await fetchRooms(userData.org_id);
+              } else if (!userData) {
+                  setLoading(true);
               } else {
                 toast({title: "Error", description: "User or organization not found. Please relogin.", variant: "destructive"});
                 setLoading(false);
@@ -134,6 +133,15 @@ function MeetingRoomBookingComponent() {
         };
 
         initializePage();
+        
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+             if (event === 'SIGNED_OUT') {
+                  router.push('/login');
+              }
+          }
+        );
+         return () => authListener.subscription.unsubscribe();
     }, [router, toast, fetchRooms]);
 
     useEffect(() => {
@@ -149,20 +157,11 @@ function MeetingRoomBookingComponent() {
             fetchBookingsAndUsers();
           })
           .subscribe();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-             if (event === 'SIGNED_OUT') {
-                  router.push('/login');
-              }
-          }
-        );
     
         return () => {
           supabase.removeChannel(channel);
-          authListener.subscription.unsubscribe();
         };
-    }, [router, selectedRoom?.id, fetchBookingsAndUsers]);
+    }, [selectedRoom?.id, fetchBookingsAndUsers]);
 
     useEffect(() => {
         fetchBookingsAndUsers();
@@ -494,5 +493,3 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
-
-    

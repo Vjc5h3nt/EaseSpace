@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -73,7 +72,6 @@ export default function MyBookingsPage() {
     
     useEffect(() => {
         const initializePage = async () => {
-            setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
                 const { data: userData, error } = await supabase
@@ -83,7 +81,7 @@ export default function MyBookingsPage() {
                     .limit(1)
                     .maybeSingle();
 
-                if (error || !userData) {
+                if (error) {
                     console.error("Error fetching user data:", error);
                     toast({title: "Error", description: "Could not fetch user data. Please relogin.", variant: "destructive"});
                     setLoading(false);
@@ -91,8 +89,12 @@ export default function MyBookingsPage() {
                     return;
                 }
                 
-                setUser(userData);
-                await fetchBookings(userData.id);
+                if (userData) {
+                    setUser(userData);
+                    await fetchBookings(userData.id);
+                } else {
+                    setLoading(true);
+                }
                 
             } else {
                 setLoading(false);
@@ -323,5 +325,3 @@ export default function MyBookingsPage() {
         </div>
     );
 }
-
-    
