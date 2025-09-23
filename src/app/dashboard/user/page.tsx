@@ -85,7 +85,7 @@ export default function UserDashboardPage() {
     };
 
     initializePage();
-  }, [fetchSpaces, router, toast]);
+  }, []);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -105,7 +105,7 @@ export default function UserDashboardPage() {
   
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
       router.push("/login");
     } catch (error) {
       console.error("Error signing out:", error);
@@ -209,5 +209,3 @@ export default function UserDashboardPage() {
     </div>
   );
 }
-
-    

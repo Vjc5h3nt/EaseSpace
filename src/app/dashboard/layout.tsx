@@ -37,7 +37,7 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
       router.push("/login");
     } catch (error) {
       console.error("Error signing out:", error);
@@ -91,5 +91,3 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
     </div>
   );
 }
-
-    

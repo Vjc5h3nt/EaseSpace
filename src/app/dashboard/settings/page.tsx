@@ -95,6 +95,21 @@ export default function SettingsPage() {
         try {
             // Update profile picture if changed
             if (profilePic) {
+                // Validate file size (e.g., 5MB limit)
+                const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+                if (profilePic.size > MAX_FILE_SIZE) {
+                    toast({ title: "Error", description: "File size must be less than 5MB", variant: "destructive" });
+                    return;
+                }
+
+                // Delete old avatar if it exists
+                if (user.photo_url) {
+                    const oldFilePath = user.photo_url.split('/').pop();
+                    if (oldFilePath) {
+                        await supabase.storage.from('avatars').remove([oldFilePath]);
+                    }
+                }
+
                 const fileExt = profilePic.name.split('.').pop();
                 const filePath = `${authUser.id}-${new Date().getTime()}.${fileExt}`;
                 

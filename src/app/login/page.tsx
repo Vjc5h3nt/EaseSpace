@@ -48,7 +48,7 @@ export default function UserLoginPage() {
       // Email verification check
       if (!authData.user.email_confirmed_at) {
           toast({ title: "Verification Required", description: "Please verify your email address before logging in. Check your inbox for a verification link.", variant: "destructive", duration: 7000 });
-          await supabase.auth.signOut();
+          await supabase.auth.signOut({ scope: 'local' });
           setIsLoading(false);
           return;
       }
@@ -61,7 +61,7 @@ export default function UserLoginPage() {
         
       if (userError || !userData) {
           toast({ title: "Login Failed", description: "User data not found.", variant: "destructive" });
-          await supabase.auth.signOut();
+          await supabase.auth.signOut({ scope: 'local' });
           setIsLoading(false);
           return;
       }
@@ -76,10 +76,10 @@ export default function UserLoginPage() {
       } else { // It's a 'user'
           if (userData.status === 'pending') {
               toast({ title: "Approval Pending", description: "Your account is pending approval from the admin.", variant: "destructive"});
-              await supabase.auth.signOut();
+              await supabase.auth.signOut({ scope: 'local' });
           } else if (userData.status === 'rejected') {
               toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
-              await supabase.auth.signOut();
+              await supabase.auth.signOut({ scope: 'local' });
           } else { // Status is 'active'
               toast({ title: "Success", description: "Logged in successfully." });
               router.push("/dashboard/user"); 

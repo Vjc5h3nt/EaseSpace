@@ -51,7 +51,7 @@ export default function AnalyticsPage() {
             // Peak Hour
             const hours = Array(24).fill(0);
             allBookings.forEach(b => {
-                const startHour = parseInt(b.start_time.split(':')[0]);
+                const startHour = b.start_time ? parseInt(b.start_time.split(':')[0]) || 0 : 0;
                 hours[startHour]++;
             });
             const peakHourIndex = hours.indexOf(Math.max(...hours));
