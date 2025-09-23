@@ -4,9 +4,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 import type { Booking, Cafeteria, MeetingRoom } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,21 +20,21 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 
 type EnrichedBooking = Booking & { spaceName: string };
-type SortConfig = { key: keyof EnrichedBooking | 'slotDateTime' | 'createdAt'; direction: 'ascending' | 'descending' } | null;
+type SortConfig = { key: keyof EnrichedBooking | 'slotDateTime' | 'created_at'; direction: 'ascending' | 'descending' } | null;
 
 export default function MyBookingsPage() {
     const router = useRouter();
     const { toast } = useToast();
     const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState(auth.currentUser);
+    const [user, setUser] = useState<any>(null);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'slotDateTime', direction: 'descending' });
     const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
     const fetchBookings = async (uid: string) => {
         setLoading(true);
         try {
-            const bookingsQuery = query(collection(db, 'bookings'), where('userId', '==', uid));
+            const bookingsQuery = query(collection(db, 'bookings'), where('user_id', '==', uid));
             const querySnapshot = await getDocs(bookingsQuery);
             const fetchedBookings: EnrichedBooking[] = [];
 
@@ -42,8 +42,8 @@ export default function MyBookingsPage() {
                 const bookingData = { id: bookingDoc.id, ...bookingDoc.data() } as Booking;
                 let spaceName = "Unknown Space";
 
-                if (bookingData.spaceType && bookingData.spaceId) {
-                    const spaceDocRef = doc(db, bookingData.spaceType === 'cafeteria' ? 'cafeterias' : 'meetingRooms', bookingData.spaceId);
+                if (bookingData.space_type && bookingData.space_id) {
+                    const spaceDocRef = doc(db, bookingData.space_type === 'cafeteria' ? 'cafeterias' : 'meetingRooms', bookingData.space_id);
                     const spaceDocSnap = await getDoc(spaceDocRef);
                     if (spaceDocSnap.exists()) {
                         spaceName = (spaceDocSnap.data() as Cafeteria | MeetingRoom).name;
@@ -63,23 +63,25 @@ export default function MyBookingsPage() {
     };
     
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            if (currentUser) {
-                setUser(currentUser);
-                fetchBookings(currentUser.uid);
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            if (session?.user) {
+              setUser(session.user);
+              fetchBookings(session.user.id);
             } else {
-                router.push('/login');
+              router.push('/login');
             }
-        });
-        return () => unsubscribe();
-    }, [router]);
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
+      }, [router]);
 
     const handleCancelBooking = async (bookingId: string) => {
         try {
             const bookingRef = doc(db, 'bookings', bookingId);
             await updateDoc(bookingRef, { status: 'Cancelled' });
             toast({ title: 'Success', description: 'Booking has been cancelled.' });
-            if(user) fetchBookings(user.uid); // Refresh bookings
+            if(user) fetchBookings(user.id); // Refresh bookings
         } catch (error) {
             console.error("Error cancelling booking:", error);
             toast({ title: 'Error', description: 'Failed to cancel booking.', variant: 'destructive' });
@@ -88,14 +90,14 @@ export default function MyBookingsPage() {
     
     const handleLogout = async () => {
         try {
-          await auth.signOut();
+          await supabase.auth.signOut();
           router.push("/login");
         } catch (error) {
           console.error("Error signing out:", error);
         }
     };
 
-    const requestSort = (key: keyof EnrichedBooking | 'slotDateTime' | 'createdAt') => {
+    const requestSort = (key: keyof EnrichedBooking | 'slotDateTime' | 'created_at') => {
         let direction: 'ascending' | 'descending' = 'ascending';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
             direction = 'descending';
@@ -115,15 +117,19 @@ export default function MyBookingsPage() {
                 let aValue, bValue;
 
                 if (sortConfig.key === 'slotDateTime') {
-                    aValue = new Date(`${a.date}T${a.startTime}`).getTime();
-                    bValue = new Date(`${b.date}T${b.startTime}`).getTime();
-                } else if (sortConfig.key === 'createdAt') {
-                    aValue = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
-                    bValue = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
+                    aValue = new Date(`${a.date}T${a.start_time}`).getTime();
+                    bValue = new Date(`${b.date}T${b.start_time}`).getTime();
+                } else if (sortConfig.key === 'created_at') {
+                    aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+                    bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
                 } else {
                     aValue = a[sortConfig.key as keyof EnrichedBooking];
                     bValue = b[sortConfig.key as keyof EnrichedBooking];
                 }
+                
+                if (aValue === null || aValue === undefined) aValue = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
+                if (bValue === null || bValue === undefined) bValue = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
+
 
                 if (aValue < bValue) {
                     return sortConfig.direction === 'ascending' ? -1 : 1;
@@ -213,7 +219,7 @@ export default function MyBookingsPage() {
                                         </Button>
                                     </TableHead>
                                      <TableHead>
-                                        <Button variant="ghost" onClick={() => requestSort('createdAt')}>
+                                        <Button variant="ghost" onClick={() => requestSort('created_at')}>
                                             Booked On
                                             <ArrowUpDown className="ml-2 h-4 w-4" />
                                         </Button>
@@ -232,11 +238,11 @@ export default function MyBookingsPage() {
                                     sortedAndFilteredBookings.map((booking) => (
                                         <TableRow key={booking.id}>
                                             <TableCell className="font-medium">{booking.spaceName}</TableCell>
-                                            <TableCell>{booking.date} at {booking.startTime}</TableCell>
+                                            <TableCell>{booking.date} at {booking.start_time}</TableCell>
                                             <TableCell>
-                                                {booking.createdAt instanceof Timestamp ? format(booking.createdAt.toDate(), "PPpp") : 'N/A'}
+                                                {booking.created_at ? format(new Date(booking.created_at), "PPpp") : 'N/A'}
                                             </TableCell>
-                                            <TableCell>{booking.seatCount || 'N/A'}</TableCell>
+                                            <TableCell>{booking.seat_count || 'N/A'}</TableCell>
                                             <TableCell>
                                                 <Badge 
                                                     variant={
@@ -275,3 +281,5 @@ export default function MyBookingsPage() {
         </div>
     );
 }
+
+    

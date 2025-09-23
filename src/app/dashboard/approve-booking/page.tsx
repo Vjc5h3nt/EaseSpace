@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X } from 'lucide-react';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { Booking, User, MeetingRoom, Cafeteria } from '@/lib/types';
-import { onAuthStateChanged } from 'firebase/auth';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 
@@ -41,10 +41,10 @@ export default function ApproveBookingPage() {
                 return;
             }
 
-            const userIds = [...new Set(bookingsSnap.docs.map(d => d.data().userId))];
-            const usersQuery = query(collection(db, 'users'), where('uid', 'in', userIds.length ? userIds : ['dummy']));
+            const userIds = [...new Set(bookingsSnap.docs.map(d => d.data().user_id))];
+            const usersQuery = query(collection(db, 'users'), where('id', 'in', userIds.length ? userIds : ['dummy']));
             const usersSnap = await getDocs(usersQuery);
-            const usersMap = new Map(usersSnap.docs.map(d => [d.data().uid, d.data() as User]));
+            const usersMap = new Map(usersSnap.docs.map(d => [d.data().id, d.data() as User]));
 
             const spacesMap = new Map<string, string>();
             const cafeteriaQuery = query(collection(db, 'cafeterias'), where('org_id', '==', orgId));
@@ -57,8 +57,8 @@ export default function ApproveBookingPage() {
                 const bookingData = { id: doc.id, ...doc.data() } as Booking;
                 return {
                     ...bookingData,
-                    userName: usersMap.get(bookingData.userId)?.fullName || 'Unknown User',
-                    spaceName: spacesMap.get(bookingData.spaceId) || 'Unknown Space'
+                    userName: usersMap.get(bookingData.user_id)?.full_name || 'Unknown User',
+                    spaceName: spacesMap.get(bookingData.space_id) || 'Unknown Space'
                 }
             });
 
@@ -73,21 +73,25 @@ export default function ApproveBookingPage() {
     };
     
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const adminUserDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
-                if (!adminUserDoc.empty) {
-                    const adminOrgId = adminUserDoc.docs[0].data().org_id;
-                    setOrgId(adminOrgId);
-                    fetchBookings(adminOrgId);
-                }
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            if (session?.user) {
+              const { data: user, error } = await supabase
+                .from('users')
+                .select('org_id')
+                .eq('id', session.user.id)
+                .single();
+              if (user) {
+                setOrgId(user.org_id);
+                fetchBookings(user.org_id);
+              }
             } else {
-                setLoading(false);
+              setLoading(false);
             }
-        });
-        
-        return () => unsubscribe();
-    }, []);
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
+      }, []);
 
     const handleBookingAction = async (booking: EnrichedBooking, newStatus: 'Confirmed' | 'Cancelled') => {
         if (newStatus === 'Cancelled') {
@@ -101,7 +105,7 @@ export default function ApproveBookingPage() {
         // Conflict check for 'Confirmed'
         const q = query(
             collection(db, 'bookings'),
-            where('spaceId', '==', booking.spaceId),
+            where('space_id', '==', booking.space_id),
             where('date', '==', booking.date),
             where('status', '==', 'Confirmed')
         );
@@ -109,15 +113,15 @@ export default function ApproveBookingPage() {
         const querySnapshot = await getDocs(q);
         const existingBookings = querySnapshot.docs.map(doc => doc.data() as Booking);
 
-        const newBookingStart = new Date(`${booking.date}T${booking.startTime}`).getTime();
-        const newBookingEnd = new Date(`${booking.date}T${booking.endTime}`).getTime();
+        const newBookingStart = new Date(`${booking.date}T${booking.start_time}`).getTime();
+        const newBookingEnd = new Date(`${booking.date}T${booking.end_time}`).getTime();
 
         for (const existingBooking of existingBookings) {
-            const existingStart = new Date(`${existingBooking.date}T${existingBooking.startTime}`).getTime();
-            const existingEnd = new Date(`${existingBooking.date}T${existingBooking.endTime}`).getTime();
+            const existingStart = new Date(`${existingBooking.date}T${existingBooking.start_time}`).getTime();
+            const existingEnd = new Date(`${existingBooking.date}T${existingBooking.end_time}`).getTime();
 
             if (newBookingStart < existingEnd && newBookingEnd > existingStart) {
-                setConflictError(`This booking overlaps with a confirmed booking from ${existingBooking.startTime} to ${existingBooking.endTime}. Please reject this request.`);
+                setConflictError(`This booking overlaps with a confirmed booking from ${existingBooking.start_time} to ${existingBooking.end_time}. Please reject this request.`);
                 return; 
             }
         }
@@ -219,7 +223,7 @@ function BookingTable({ title, bookings, showActions, onAction, loading }: Booki
                                     <TableCell>{booking.userName}</TableCell>
                                     <TableCell>{booking.spaceName}</TableCell>
                                     <TableCell>{booking.date}</TableCell>
-                                    <TableCell>{booking.startTime} - {booking.endTime}</TableCell>
+                                    <TableCell>{booking.start_time} - {booking.end_time}</TableCell>
                                     {showActions && (
                                         <TableCell className="flex gap-2">
                                             <Button variant="outline" size="icon" onClick={() => onAction(booking, 'Confirmed')}><Check className="h-4 w-4 text-green-600" /></Button>
@@ -241,3 +245,5 @@ function BookingTable({ title, bookings, showActions, onAction, loading }: Booki
         </Card>
     )
 }
+
+    

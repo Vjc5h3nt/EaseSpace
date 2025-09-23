@@ -7,9 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Pencil, PlusCircle } from "lucide-react";
 import type { Booking, Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
-import { auth, db } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CafeteriaLayoutEditor } from "@/components/cafeteria-layout-editor";
@@ -45,20 +45,24 @@ export default function AdminDashboardPage() {
 
 
    useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          const userOrgId = userDocSnap.data().org_id;
-          setOrgId(userOrgId);
-          fetchDashboardData(userOrgId);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          const { data: user, error } = await supabase
+            .from('users')
+            .select('org_id')
+            .eq('id', session.user.id)
+            .single();
+          if (user) {
+            setOrgId(user.org_id);
+            fetchDashboardData(user.org_id);
+          }
+        } else {
+          setLoading(false);
         }
-      } else {
-        setLoading(false);
       }
-    });
-    return () => unsubscribe();
+    );
+    return () => authListener.subscription.unsubscribe();
   }, []);
 
   const fetchDashboardData = async (orgId: string) => {
@@ -79,7 +83,7 @@ export default function AdminDashboardPage() {
         const allBookings = bookingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
         const allUsers = usersSnap.docs.map(doc => doc.data() as User);
 
-        const usersMap = new Map(allUsers.map(u => [u.uid, u.fullName]));
+        const usersMap = new Map(allUsers.map(u => [u.id, u.full_name]));
         const spacesMap = new Map([
             ...fetchedCafeterias.map(c => [c.id, c.name]),
             ...fetchedMeetingRooms.map(r => [r.id, r.name])
@@ -92,10 +96,10 @@ export default function AdminDashboardPage() {
         const totalBookings = allBookings.length;
         const confirmedBookings = allBookings.filter(b => b.status === 'Confirmed').length;
         const cancelledBookings = allBookings.filter(b => b.status === 'Cancelled').length;
-        const activeUsers = new Set(allBookings.map(b => b.userId)).size;
+        const activeUsers = new Set(allBookings.map(b => b.user_id)).size;
         const totalDuration = allBookings.reduce((acc, b) => {
-            const startTime = new Date(`${b.date}T${b.startTime}`);
-            const endTime = new Date(`${b.date}T${b.endTime}`);
+            const startTime = new Date(`${b.date}T${b.start_time}`);
+            const endTime = new Date(`${b.date}T${b.end_time}`);
             return acc + differenceInMinutes(endTime, startTime);
         }, 0);
         const avgDurationMinutes = totalBookings > 0 ? totalDuration / totalBookings : 0;
@@ -106,9 +110,9 @@ export default function AdminDashboardPage() {
         const sortedBookings = allBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         const enrichedRecentBookings = sortedBookings.slice(0, 5).map(b => ({
             ...b,
-            userName: usersMap.get(b.userId) || 'Unknown User',
-            spaceName: spacesMap.get(b.spaceId) || 'Unknown Space',
-            seat: b.tableId ? `Table ${b.tableId.split('-')[1]}` : 'N/A'
+            userName: usersMap.get(b.user_id) || 'Unknown User',
+            spaceName: spacesMap.get(b.space_id) || 'Unknown Space',
+            seat: b.table_id ? `Table ${b.table_id.split('-')[1]}` : 'N/A'
         }));
         setRecentBookings(enrichedRecentBookings);
 
@@ -364,7 +368,7 @@ export default function AdminDashboardPage() {
                                 <TableCell className="px-6 py-4 font-medium text-neutral-900">{booking.userName}</TableCell>
                                 <TableCell className="px-6 py-4 text-neutral-600">{booking.spaceName}</TableCell>
                                 <TableCell className="px-6 py-4 text-neutral-600">{booking.seat}</TableCell>
-                                <TableCell className="px-6 py-4 text-neutral-600">{booking.startTime} - {booking.endTime}</TableCell>
+                                <TableCell className="px-6 py-4 text-neutral-600">{booking.start_time} - {booking.end_time}</TableCell>
                                 <TableCell className="px-6 py-4 text-neutral-600">{booking.date}</TableCell>
                                 <TableCell className="px-6 py-4 text-center">
                                     <Badge 
@@ -390,9 +394,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
-
-    
 
     

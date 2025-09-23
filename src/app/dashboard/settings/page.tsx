@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,11 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db, storage } from '@/lib/firebase';
-import { onAuthStateChanged, updateProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
+import { supabase } from "@/lib/supabase";
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { User } from '@/lib/types';
+import { storage } from '@/lib/firebase';
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -22,22 +23,30 @@ export default function SettingsPage() {
     const [profilePic, setProfilePic] = useState<File | null>(null);
     const [profilePicUrl, setProfilePicUrl] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [authUser, setAuthUser] = useState<any>(null);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            const currentUser = session?.user;
+            setAuthUser(currentUser);
             if (currentUser) {
-                const userDocRef = doc(db, "users", currentUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data() as User;
+                const { data: userData, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                if (userData) {
                     setUser(userData);
-                    setDisplayName(currentUser.displayName || userData.fullName || '');
-                    setEmail(currentUser.email || '');
-                    setProfilePicUrl(currentUser.photoURL || '');
+                    setDisplayName(userData.full_name || '');
+                    setEmail(userData.email || '');
+                    setProfilePicUrl(userData.photo_url || '');
                 }
             }
-        });
-        return () => unsubscribe();
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
     }, []);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,28 +58,32 @@ export default function SettingsPage() {
     };
 
     const handleSaveChanges = async () => {
-        if (!auth.currentUser) return;
+        if (!authUser || !user) return;
 
         try {
             // Update profile picture if changed
             if (profilePic) {
-                const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
+                // This part still uses Firebase storage, will be migrated
+                const storageRef = ref(storage, `profilePictures/${authUser.id}`);
                 await uploadBytes(storageRef, profilePic);
                 const downloadURL = await getDownloadURL(storageRef);
-                await updateProfile(auth.currentUser, { photoURL: downloadURL });
+                
+                const { error: urlError } = await supabase.from('users').update({ photo_url: downloadURL }).eq('id', user.id);
+                if (urlError) throw urlError;
+
                 setProfilePicUrl(downloadURL);
             }
 
             // Update display name
-            if (displayName !== auth.currentUser.displayName) {
-                await updateProfile(auth.currentUser, { displayName });
-                const userDocRef = doc(db, "users", auth.currentUser.uid);
-                await updateDoc(userDocRef, { fullName: displayName });
+            if (displayName !== user.full_name) {
+                const { error: nameError } = await supabase.from('users').update({ full_name: displayName }).eq('id', user.id);
+                if (nameError) throw nameError;
             }
             
             // Update email if changed
-            if (email !== auth.currentUser.email) {
-                await verifyBeforeUpdateEmail(auth.currentUser, email);
+            if (email !== authUser.email) {
+                const { error: emailError } = await supabase.auth.updateUser({ email });
+                if(emailError) throw emailError;
                  toast({
                     title: "Verification Email Sent",
                     description: `Please check your new email (${email}) to verify the change.`,
@@ -129,3 +142,5 @@ export default function SettingsPage() {
         </div>
     );
 }
+
+    

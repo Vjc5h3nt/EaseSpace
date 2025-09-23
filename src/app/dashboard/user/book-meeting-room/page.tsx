@@ -5,7 +5,8 @@ import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp, Timestamp, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 import type { MeetingRoom, Booking, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +17,6 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { onAuthStateChanged } from 'firebase/auth';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import BookingCalendar from '@/components/booking-calendar';
@@ -52,23 +52,28 @@ function MeetingRoomBookingComponent() {
 
 
     useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            const currentUser = session?.user;
             if (currentUser) {
-                const userDocRef = doc(db, 'users', currentUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data() as User;
-                    setUser(userData);
-                    fetchRooms(userData.org_id);
-                } else {
-                    router.push('/login');
-                }
-            } else {
+              const { data: userData, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+              if (userData) {
+                setUser(userData);
+                fetchRooms(userData.org_id);
+              } else {
                 router.push('/login');
+              }
+            } else {
+              router.push('/login');
             }
-        });
-        return () => unsubscribeAuth();
-    }, [router]);
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
+      }, [router]);
 
     const fetchRooms = async (orgId: string) => {
         setLoading(true);
@@ -85,16 +90,16 @@ function MeetingRoomBookingComponent() {
     useEffect(() => {
         if (!selectedRoom) return;
 
-        const bookingsQuery = query(collection(db, "bookings"), where("spaceId", "==", selectedRoom.id));
+        const bookingsQuery = query(collection(db, "bookings"), where("space_id", "==", selectedRoom.id));
         const unsubscribeBookings = onSnapshot(bookingsQuery, async (snapshot) => {
-            const userIds = [...new Set(snapshot.docs.map(d => d.data().userId))];
+            const userIds = [...new Set(snapshot.docs.map(d => d.data().user_id))];
             const usersMap = new Map<string, string>();
             if (userIds.length > 0) {
-                 const usersQuery = query(collection(db, 'users'), where('uid', 'in', userIds));
+                 const usersQuery = query(collection(db, 'users'), where('id', 'in', userIds));
                  const usersSnap = await getDocs(usersQuery);
                  usersSnap.forEach(doc => {
                      const userData = doc.data() as User;
-                     usersMap.set(userData.uid, userData.fullName);
+                     usersMap.set(userData.id, userData.full_name);
                  });
             }
 
@@ -103,7 +108,7 @@ function MeetingRoomBookingComponent() {
                     const bookingData = { id: doc.id, ...doc.data() } as Booking;
                     return {
                         ...bookingData,
-                        userName: usersMap.get(bookingData.userId) || 'A User'
+                        userName: usersMap.get(bookingData.user_id) || 'A User'
                     }
                 })
                 .filter(booking => booking.status !== 'Cancelled'); // Exclude cancelled bookings from the list
@@ -126,8 +131,8 @@ function MeetingRoomBookingComponent() {
         return bookings.map(booking => ({
             id: booking.id,
             title: `${booking.userName || 'User'}: ${booking.purpose || 'Booking'}`,
-            start: `${booking.date}T${booking.startTime}`,
-            end: `${booking.date}T${booking.endTime}`,
+            start: `${booking.date}T${booking.start_time}`,
+            end: `${booking.date}T${booking.end_time}`,
             backgroundColor: getColor(booking.status),
             borderColor: getColor(booking.status),
             textColor: '#ffffff',
@@ -187,8 +192,8 @@ function MeetingRoomBookingComponent() {
         const hasConflict = bookings.some(b => {
             // Only check for conflicts with Confirmed or Pending bookings
             if (b.status === 'Cancelled') return false; 
-            const existingStart = new Date(`${b.date}T${b.startTime}`).getTime();
-            const existingEnd = new Date(`${b.date}T${b.endTime}`).getTime();
+            const existingStart = new Date(`${b.date}T${b.start_time}`).getTime();
+            const existingEnd = new Date(`${b.date}T${b.end_time}`).getTime();
             return newBookingStart < existingEnd && newBookingEnd > existingStart;
         });
 
@@ -201,19 +206,20 @@ function MeetingRoomBookingComponent() {
         try {
             const newBooking: Partial<EnrichedBooking> = {
                 org_id: user.org_id,
-                userId: user.uid,
-                spaceId: selectedRoom.id,
-                spaceType: 'meetingRoom',
+                user_id: user.id,
+                space_id: selectedRoom.id,
+                space_type: 'meetingRoom',
                 date: format(bookingDate, 'yyyy-MM-dd'),
-                startTime,
-                endTime,
+                start_time: startTime,
+                end_time: endTime,
                 status: 'Requires Approval',
                 purpose,
                 participants: participants.split(',').map(p => p.trim()).filter(Boolean),
-                userName: user.fullName,
-                employeeId: user.employeeId || 'N/A',
-                contact: user.mobileNumber || 'N/A',
-                createdAt: serverTimestamp() as Timestamp,
+                userName: user.full_name,
+                employee_id: user.employee_id || 'N/A',
+                contact: user.mobile_number || 'N/A',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
             };
 
             await addDoc(collection(db, 'bookings'), newBooking);
@@ -263,7 +269,7 @@ function MeetingRoomBookingComponent() {
                 </AlertDialogHeader>
                 <div className="space-y-2 text-sm">
                     <p><strong>Purpose:</strong> {eventToShow.purpose}</p>
-                    <p><strong>Time:</strong> {eventToShow.startTime} - {eventToShow.endTime}</p>
+                    <p><strong>Time:</strong> {eventToShow.start_time} - {eventToShow.end_time}</p>
                 </div>
                 <AlertDialogFooter>
                     <AlertDialogAction onClick={() => {setIsInfoDialogOpen(false); setEventToShow(null)}}>OK</AlertDialogAction>
@@ -390,7 +396,7 @@ function MeetingRoomBookingComponent() {
                              <AlertDialogDescription>Capacity: {selectedRoom.capacity} people</AlertDialogDescription>
                         </AlertDialogHeader>
                          <img
-                            src={selectedRoom.imageUrl || "https://placehold.co/600x400.png"}
+                            src={selectedRoom.image_url || "https://placehold.co/600x400.png"}
                             alt={selectedRoom.name}
                             className="w-full h-auto rounded-lg object-cover"
                             data-ai-hint="meeting room"
@@ -440,7 +446,5 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
-
-    
 
     

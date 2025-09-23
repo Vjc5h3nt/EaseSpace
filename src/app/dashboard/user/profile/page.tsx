@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,9 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon, Upload, ArrowLeft, Building, CalendarCheck, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db, storage } from '@/lib/firebase';
-import { onAuthStateChanged, updateProfile } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { supabase } from "@/lib/supabase";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
@@ -27,24 +26,29 @@ export default function UserProfilePage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
-                const userDocRef = doc(db, "users", currentUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data() as User;
-                    setUser(userData);
-                    setProfilePicUrl(currentUser.photoURL || '');
-                } else {
-                    router.push('/login');
-                }
-            } else {
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            if (session?.user) {
+              const { data: userData, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (userData) {
+                setUser(userData);
+                setProfilePicUrl(userData.photo_url || '');
+              } else {
                 router.push('/login');
+              }
+            } else {
+              router.push('/login');
             }
             setLoading(false);
-        });
-        return () => unsubscribe();
-    }, [router]);
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
+      }, [router]);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -55,19 +59,32 @@ export default function UserProfilePage() {
     };
 
     const handleUpdateProfilePicture = async () => {
-        if (!auth.currentUser || !profilePic) return;
+        if (!user || !profilePic) return;
 
         try {
-            const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
-            await uploadBytes(storageRef, profilePic);
-            const downloadURL = await getDownloadURL(storageRef);
-            
-            await updateProfile(auth.currentUser, { photoURL: downloadURL });
-            
-            const userDocRef = doc(db, "users", auth.currentUser.uid);
-            await updateDoc(userDocRef, { photoURL: downloadURL });
+            const fileExt = profilePic.name.split('.').pop();
+            const filePath = `${user.id}.${fileExt}`;
 
-            setProfilePicUrl(downloadURL);
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, profilePic, { upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+            
+            const publicUrl = data.publicUrl;
+
+            const { error: updateUserError } = await supabase
+                .from('users')
+                .update({ photo_url: publicUrl })
+                .eq('id', user.id);
+
+            if (updateUserError) throw updateUserError;
+            
+            setProfilePicUrl(publicUrl);
             toast({ title: "Success", description: "Profile picture updated successfully!" });
         } catch (error: any) {
             toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -76,7 +93,7 @@ export default function UserProfilePage() {
     
       const handleLogout = async () => {
         try {
-          await auth.signOut();
+          await supabase.auth.signOut();
           router.push("/login");
         } catch (error) {
           console.error("Error signing out:", error);
@@ -157,7 +174,7 @@ export default function UserProfilePage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="displayName">Full Name</Label>
-                            <Input id="displayName" value={user.fullName} readOnly disabled />
+                            <Input id="displayName" value={user.full_name} readOnly disabled />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="email">Email Address</Label>
@@ -169,3 +186,5 @@ export default function UserProfilePage() {
         </div>
     );
 }
+
+    

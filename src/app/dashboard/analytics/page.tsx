@@ -5,9 +5,9 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import type { Booking, User } from "@/lib/types";
-import { auth, db } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AnalyticsPage() {
@@ -25,20 +25,25 @@ export default function AnalyticsPage() {
     const [dailyUsageData, setDailyUsageData] = useState<{ name: string; value: number }[]>([]);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
-                if (!userDoc.empty) {
-                    const userOrgId = userDoc.docs[0].data().org_id;
-                    setOrgId(userOrgId);
-                    fetchAnalyticsData(userOrgId);
-                }
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            if (session?.user) {
+              const { data: user, error } = await supabase
+                .from('users')
+                .select('org_id')
+                .eq('id', session.user.id)
+                .single();
+              if (user) {
+                setOrgId(user.org_id);
+                fetchAnalyticsData(user.org_id);
+              }
             } else {
-                setLoading(false);
+              setLoading(false);
             }
-        });
-        return () => unsubscribe();
-    }, []);
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
+      }, []);
 
     const fetchAnalyticsData = async (orgId: string) => {
         if (!orgId) return;
@@ -63,7 +68,7 @@ export default function AnalyticsPage() {
             // Peak Hour
             const hours = Array(24).fill(0);
             allBookings.forEach(b => {
-                const startHour = parseInt(b.startTime.split(':')[0]);
+                const startHour = parseInt(b.start_time.split(':')[0]);
                 hours[startHour]++;
             });
             const peakHourIndex = hours.indexOf(Math.max(...hours));
@@ -76,7 +81,7 @@ export default function AnalyticsPage() {
                 spaceNames[doc.id] = doc.data().name;
             });
             allBookings.forEach(b => {
-                spaceCounts[b.spaceId] = (spaceCounts[b.spaceId] || 0) + 1;
+                spaceCounts[b.space_id] = (spaceCounts[b.space_id] || 0) + 1;
             });
             const popularSpaceId = Object.keys(spaceCounts).sort((a,b) => spaceCounts[b] - spaceCounts[a])[0];
             const popularSpace = spaceNames[popularSpaceId] || 'N/A';
@@ -178,3 +183,5 @@ export default function AnalyticsPage() {
         </div>
     );
 }
+
+    

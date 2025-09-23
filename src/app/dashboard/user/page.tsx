@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import type { User, Cafeteria, MeetingRoom } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,29 +21,32 @@ export default function UserDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data() as User;
-          setUser(userData);
-          // Ensure org_id is present before fetching spaces
-          if (userData.org_id) {
-            fetchSpaces(userData.org_id);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          const { data: userData, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (userData) {
+            setUser(userData);
+            if (userData.org_id) {
+              fetchSpaces(userData.org_id);
+            } else {
+              setLoading(false);
+            }
           } else {
-             setLoading(false);
+            console.log("No such user document!");
+            router.push('/login');
           }
         } else {
-          // If no user doc, they might be an unverified admin or something went wrong
-          console.log("No such user document!");
           router.push('/login');
         }
-      } else {
-        router.push('/login');
       }
-    });
-    return () => unsubscribe();
+    );
+    return () => authListener.subscription.unsubscribe();
   }, [router]);
 
   const fetchSpaces = async (org_id: string) => {
@@ -67,7 +71,7 @@ export default function UserDashboardPage() {
   
   const handleLogout = async () => {
     try {
-      await auth.signOut();
+      await supabase.auth.signOut();
       router.push("/login");
     } catch (error) {
       console.error("Error signing out:", error);
@@ -108,7 +112,7 @@ export default function UserDashboardPage() {
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-neutral-900">Book a Space</h1>
           <p className="text-neutral-600 mt-1">
-            Welcome, {user?.fullName || 'User'}! Select a space to make a booking.
+            Welcome, {user?.full_name || 'User'}! Select a space to make a booking.
           </p>
         </header>
 
@@ -171,3 +175,5 @@ export default function UserDashboardPage() {
     </div>
   );
 }
+
+    

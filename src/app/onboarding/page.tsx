@@ -11,9 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Trash2, Building, Utensils, AlertTriangle } from "lucide-react";
 import type { Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db } from '@/lib/firebase';
+import { supabase } from "@/lib/supabase";
 import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
-import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { cn } from '@/lib/utils';
 import { CafeteriaLayoutEditor } from '@/components/cafeteria-layout-editor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -29,7 +28,7 @@ export default function OnboardingPage() {
   const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'org_id'>[]>([]);
   
   // User and org state
-  const [user, setUser] = useState(auth.currentUser);
+  const [user, setUser] = useState<User | null>(null);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [orgId, setOrgId] = useState<string | null>(null);
 
@@ -43,35 +42,43 @@ export default function OnboardingPage() {
   const [currentLayout, setCurrentLayout] = useState<TableLayout[]>([]);
   
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        await currentUser.reload(); // Refresh user state to get latest emailVerified status
-        setUser(currentUser);
-        setIsEmailVerified(currentUser.emailVerified);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        const currentUser = session?.user;
+        if (currentUser) {
+          setIsEmailVerified(!!currentUser.email_confirmed_at);
 
-        if (!currentUser.emailVerified) {
-          toast({
-            title: "Verification Required",
-            description: "Please verify your email before proceeding.",
-            variant: "destructive",
-            duration: 5000,
-          });
-        }
-        
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          setOrgId(userDocSnap.data().org_id);
-          // Redirect if already onboarded
-          if (userDocSnap.data().onboardingComplete) {
-              router.push('/dashboard/admin');
+          if (!currentUser.email_confirmed_at) {
+            toast({
+              title: "Verification Required",
+              description: "Please verify your email before proceeding.",
+              variant: "destructive",
+              duration: 5000,
+            });
           }
+          
+          const { data: userData, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+
+          if (userData) {
+            setUser(userData);
+            setOrgId(userData.org_id);
+            if (userData.onboarding_complete) {
+              router.push('/dashboard/admin');
+            }
+          }
+        } else {
+          router.push('/login');
         }
-      } else {
-        router.push('/login');
       }
-    });
-    return () => unsubscribe();
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, [router, toast]);
   
   const addCafeteria = () => {
@@ -115,20 +122,20 @@ export default function OnboardingPage() {
     }
 
     try {
-      const cafeteriasCollectionRef = collection(db, "cafeterias");
-      for (const cafe of cafeterias) {
-        const { id, ...cafeData } = cafe;
-        await addDoc(cafeteriasCollectionRef, { ...cafeData, org_id: orgId });
-      }
+      // Still using firestore for data, will be migrated next
+      const { error: cafeError } = await supabase.from('cafeterias').insert(
+          cafeterias.map(c => ({...c, org_id: orgId}))
+      );
+      if(cafeError) throw cafeError;
 
-      const meetingRoomsCollectionRef = collection(db, "meetingRooms");
-      for (const room of meetingRooms) {
-        await addDoc(meetingRoomsCollectionRef, { ...room, org_id: orgId });
-      }
+      const { error: roomError } = await supabase.from('meeting_rooms').insert(
+          meetingRooms.map(r => ({...r, org_id: orgId}))
+      );
+      if(roomError) throw roomError;
 
       // Mark onboarding as complete for the user
-      const userDocRef = doc(db, "users", user.uid);
-      await updateDoc(userDocRef, { onboardingComplete: true });
+      const { error: userUpdateError } = await supabase.from('users').update({ onboarding_complete: true }).eq('id', user.id);
+      if(userUpdateError) throw userUpdateError;
       
       toast({
         title: "Onboarding Complete!",
@@ -293,3 +300,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+    

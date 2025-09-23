@@ -5,7 +5,8 @@ import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { doc, getDoc, addDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -15,7 +16,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { onAuthStateChanged } from 'firebase/auth';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
@@ -42,22 +42,27 @@ function CafeteriaBookingComponent() {
     const [bookingsBySlot, setBookingsBySlot] = useState<BookingsForSlot>({});
     const [userTotalBookedSeats, setUserTotalBookedSeats] = useState(0);
 
-    const [user, setUser] = useState<{uid: string, org_id: string} | null>(null);
+    const [user, setUser] = useState<{id: string, org_id: string} | null>(null);
 
     useEffect(() => {
-      const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-        if(currentUser){
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            const userDoc = await getDoc(userDocRef);
-            if(userDoc.exists()) {
-                setUser({ uid: currentUser.uid, org_id: userDoc.data().org_id });
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            if (session?.user) {
+              const { data: userData, error } = await supabase
+                .from('users')
+                .select('id, org_id')
+                .eq('id', session.user.id)
+                .single();
+              if (userData) {
+                setUser(userData);
+              }
+            } else {
+              router.push('/login');
             }
-        } else {
-            router.push('/login');
-        }
-      });
-      return () => unsubscribe();
-    }, [router])
+          }
+        );
+        return () => authListener.subscription.unsubscribe();
+      }, [router]);
 
     useEffect(() => {
         if (!cafeteriaId) {
@@ -103,9 +108,9 @@ function CafeteriaBookingComponent() {
             const [startTime] = timeSlot.split(' - ');
             const q = query(
                 collection(db, "bookings"),
-                where("spaceId", "==", cafeteriaId),
+                where("space_id", "==", cafeteriaId),
                 where("date", "==", format(bookingDate, "yyyy-MM-dd")),
-                where("startTime", "==", startTime.trim()),
+                where("start_time", "==", startTime.trim()),
                 where("status", "==", "Confirmed")
             );
 
@@ -115,11 +120,11 @@ function CafeteriaBookingComponent() {
 
             querySnapshot.forEach(doc => {
                 const booking = doc.data() as Booking;
-                if (booking.tableId && booking.seatCount) {
-                    newBookingsBySlot[booking.tableId] = (newBookingsBySlot[booking.tableId] || 0) + booking.seatCount;
+                if (booking.table_id && booking.seat_count) {
+                    newBookingsBySlot[booking.table_id] = (newBookingsBySlot[booking.table_id] || 0) + booking.seat_count;
                 }
-                if (booking.userId === user.uid) {
-                    totalUserSeats += booking.seatCount || 0;
+                if (booking.user_id === user.id) {
+                    totalUserSeats += booking.seat_count || 0;
                 }
             });
             
@@ -171,21 +176,25 @@ function CafeteriaBookingComponent() {
         }
 
         try {
-            const newBooking: Omit<Booking, 'id'> = {
+            const newBooking: Omit<Booking, 'id' | 'created_at' | 'updated_at'> = {
                 org_id: user.org_id,
-                userId: user.uid,
-                spaceId: cafeteria.id,
-                spaceType: 'cafeteria',
+                user_id: user.id,
+                space_id: cafeteria.id,
+                space_type: 'cafeteria',
                 date: format(bookingDate, "yyyy-MM-dd"),
-                startTime: timeSlot.split('-')[0].trim(),
-                endTime: timeSlot.split('-')[1].trim(),
+                start_time: timeSlot.split('-')[0].trim(),
+                end_time: timeSlot.split('-')[1].trim(),
                 status: 'Confirmed',
-                tableId: selectedTable.id,
-                seatCount: seatCount,
-                createdAt: serverTimestamp() as any
+                table_id: selectedTable.id,
+                seat_count: seatCount,
+                contact: null,
+                employee_id: null,
+                participants: null,
+                purpose: null,
+                user_name: null
             };
             
-            await addDoc(collection(db, "bookings"), newBooking);
+            await addDoc(collection(db, "bookings"), { ...newBooking, created_at: serverTimestamp(), updated_at: serverTimestamp() });
 
             toast({ title: "Booking Confirmed!", description: `You have booked ${seatCount} seat(s) at table ${selectedTable.id.split('-')[1]}.` });
             
@@ -236,7 +245,7 @@ function CafeteriaBookingComponent() {
                                 disabled={(date) => {
                                     const today = new Date();
                                     today.setHours(0, 0, 0, 0); // Set to start of today for comparison
-                                    return date < today || date > today;
+                                    return date < today;
                                 }}
                                 initialFocus 
                             />
@@ -330,3 +339,5 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
+
+    

@@ -15,7 +15,7 @@ import {
 import { Logo } from "@/components/logo";
 import { ChatbotPopup } from "@/components/chatbot-popup";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -37,7 +37,7 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
 
   const handleLogout = async () => {
     try {
-      await auth.signOut();
+      await supabase.auth.signOut();
       router.push("/login");
     } catch (error) {
       console.error("Error signing out:", error);
