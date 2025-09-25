@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -70,8 +71,6 @@ export default function UserDashboardPage() {
           } else {
             setLoading(false);
           }
-        } else {
-          setLoading(true); // Wait for auth state change to possibly resolve user
         }
       } else {
         setLoading(false);
@@ -82,7 +81,7 @@ export default function UserDashboardPage() {
     initializePage();
     
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (event === 'SIGNED_OUT') {
           router.push('/login');
         }
@@ -147,11 +146,47 @@ export default function UserDashboardPage() {
                     <h2 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
                         <Utensils className="h-5 w-5" /> Cafeterias
                     </h2>
-                    </section>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {cafeterias.length > 0 ? cafeterias.map((cafe) => (
+                            <Card key={cafe.id}>
+                                <CardHeader>
+                                    <CardTitle>{cafe.name}</CardTitle>
+                                    <CardDescription>Capacity: {cafe.capacity}</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Button asChild>
+                                        <Link href={`/dashboard/user/book-cafeteria?id=${cafe.id}`}>Book a Seat <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )) : <p className="text-muted-foreground col-span-full">No cafeterias available in your organization.</p>}
                     </div>
-                    )}
-                    </main>
+                </section>
+                 <section>
+                    <h2 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+                        <Building className="h-5 w-5" /> Meeting Rooms
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                         {meetingRooms.length > 0 ? (
+                            <Card className="col-span-full">
+                                <CardHeader>
+                                    <CardTitle>Book a Meeting Room</CardTitle>
+                                    <CardDescription>View all available meeting rooms and their schedules in a centralized calendar view.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                     <Button asChild>
+                                        <Link href="/dashboard/user/book-meeting-room">
+                                            Open Booking Calendar <ArrowRight className="ml-2 h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ) : <p className="text-muted-foreground col-span-full">No meeting rooms available in your organization.</p>}
                     </div>
-                    );
-                    }
-                    
+                </section>
+            </div>
+        )}
+      </main>
+    </div>
+  );
+}

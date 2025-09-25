@@ -87,8 +87,6 @@ function CafeteriaBookingComponent() {
               if (userData) {
                 setUser(userData);
                 fetchCafeteria(cafeteriaId);
-              } else if (!user) {
-                setLoading(true);
               } else {
                 toast({title: "Error", description: "User not found. Please relogin.", variant: "destructive"});
                 setLoading(false);

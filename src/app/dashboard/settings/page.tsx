@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -43,9 +44,6 @@ export default function SettingsPage() {
             setDisplayName(userData.full_name || '');
             setEmail(userData.email || '');
             setProfilePicUrl(userData.photo_url || '');
-        } else {
-            // This might happen in a race condition, so we just wait for the auth listener to maybe fix it.
-            console.warn("User data not found initially.");
         }
         
         setLoading(false);
@@ -199,3 +197,4 @@ export default function SettingsPage() {
             </Card>
         </div>
     );
+}

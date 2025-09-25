@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -131,7 +132,6 @@ export default function AdminDashboardPage() {
           setOrgId(user.org_id);
           await fetchDashboardData(user.org_id);
         } else if (!user) {
-           // User might not be in the table yet, wait for auth state change
            setLoading(true);
         } else {
           setLoading(false);
@@ -432,3 +432,4 @@ export default function AdminDashboardPage() {
         </section>
     </div>
   );
+}
