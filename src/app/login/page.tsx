@@ -13,10 +13,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
-<<<<<<< HEAD
-=======
-import { doc, getDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
->>>>>>> 25b4d51 (reg this point - I will replace it with a single, unified "All Users" ta)
 import React from "react";
 import { Logo } from "@/components/logo";
 
@@ -41,7 +37,6 @@ export default function UserLoginPage() {
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-<<<<<<< HEAD
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email: values.email,
           password: values.password,
@@ -70,29 +65,6 @@ export default function UserLoginPage() {
           setIsLoading(false);
           return;
       }
-=======
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
-      
-      if (!user.emailVerified) {
-          toast({ title: "Verification Required", description: "Please verify your email address before logging in. Check your inbox for a verification link.", variant: "destructive", duration: 7000 });
-          await auth.signOut();
-          setIsLoading(false);
-          return;
-      }
-
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-         toast({ title: "Login Failed", description: "User data not found.", variant: "destructive" });
-         await auth.signOut();
-         setIsLoading(false);
-         return;
-      }
-      
-      const userData = userDoc.data();
->>>>>>> 25b4d51 (reg this point - I will replace it with a single, unified "All Users" ta)
 
       if (userData.role === 'admin') {
          toast({ title: "Success", description: "Logged in successfully." });
@@ -103,30 +75,12 @@ export default function UserLoginPage() {
          }
       } else { // It's a 'user'
           if (userData.status === 'pending') {
-<<<<<<< HEAD
               toast({ title: "Approval Pending", description: "Your account is pending approval from the admin.", variant: "destructive"});
               await supabase.auth.signOut({ scope: 'local' });
           } else if (userData.status === 'rejected') {
               toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
               await supabase.auth.signOut({ scope: 'local' });
           } else { // Status is 'active'
-=======
-              // This is the user's first login after password setup. Activate them.
-              await updateDoc(userDocRef, { status: 'active' });
-              toast({ title: "Account Activated!", description: "Welcome to EaseSpace. You can now book spaces." });
-              router.push("/dashboard/user");
-          } else if (userData.status === 'rejected') {
-              toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
-              await auth.signOut();
-          } else if (userData.status === 'disabled') {
-              const adminQuery = query(collection(db, "users"), where("org_id", "==", userData.org_id), where("role", "==", "admin"));
-              const adminSnapshot = await getDocs(adminQuery);
-              const adminEmail = adminSnapshot.docs.length > 0 ? adminSnapshot.docs[0].data().email : 'your administrator';
-              toast({ title: "Account Disabled", description: `Your account has been disabled. Please contact ${adminEmail}.`, variant: "destructive", duration: 7000});
-              await auth.signOut();
-          }
-          else { // Status is 'active'
->>>>>>> 25b4d51 (reg this point - I will replace it with a single, unified "All Users" ta)
               toast({ title: "Success", description: "Logged in successfully." });
               router.push("/dashboard/user"); 
           }
