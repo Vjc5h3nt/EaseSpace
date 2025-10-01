@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
 import React from "react";
 import { Logo } from "@/components/logo";
+import { useAuth } from "@/contexts/auth-context";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -24,7 +25,18 @@ const formSchema = z.object({
 export default function UserLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, appUser, loading, refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && user && appUser && appUser.status === 'active') {
+      const redirectPath = appUser.role === 'admin' 
+        ? (appUser.onboarding_complete ? '/dashboard/admin' : '/onboarding')
+        : '/dashboard/user';
+      router.push(redirectPath);
+    }
+  }, [user, appUser, loading, router]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,40 +64,16 @@ export default function UserLoginPage() {
           setIsLoading(false);
           return;
       }
+
+      // Wait a moment for auth context to update, then refresh user data
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await refreshUser();
       
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
-        
-      if (userError || !userData) {
-          toast({ title: "Login Failed", description: "User data not found.", variant: "destructive" });
-          await supabase.auth.signOut({ scope: 'local' });
-          setIsLoading(false);
-          return;
-      }
-
-      if (userData.role === 'admin') {
-         toast({ title: "Success", description: "Logged in successfully." });
-         if (userData.onboarding_complete) {
-            router.push("/dashboard/admin");
-         } else {
-            router.push("/onboarding");
-         }
-      } else { // It's a 'user'
-          if (userData.status === 'pending') {
-              toast({ title: "Approval Pending", description: "Your account is pending approval from the admin.", variant: "destructive"});
-              await supabase.auth.signOut({ scope: 'local' });
-          } else if (userData.status === 'rejected') {
-              toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
-              await supabase.auth.signOut({ scope: 'local' });
-          } else { // Status is 'active'
-              toast({ title: "Success", description: "Logged in successfully." });
-              router.push("/dashboard/user"); 
-          }
-      }
-
+      toast({ title: "Success", description: "Logged in successfully." });
+      
+      // The auth context and protected routes will handle the redirect
+      // based on user role and status
+      
     } catch (error: any) {
       toast({
         title: "Login Failed",

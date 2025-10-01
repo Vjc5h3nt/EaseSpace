@@ -11,11 +11,11 @@ import { PlusCircle, Check, X } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function UsersPage() {
     const { toast } = useToast();
-    const router = useRouter();
+    const { appUser, loading: authLoading } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [orgId, setOrgId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -37,51 +37,21 @@ export default function UsersPage() {
     }, [toast]);
 
     useEffect(() => {
-        const initializePage = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                const { data: user, error } = await supabase
-                    .from('users')
-                    .select('org_id')
-                    .eq('id', session.user.id)
-                    .limit(1)
-                    .maybeSingle();
-
-                if (error) {
-                    console.error("Error fetching user data:", error);
-                    toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
-                    setLoading(false);
-                    router.push('/login');
-                    return;
-                }
-                
-                if (user?.org_id) {
-                    setOrgId(user.org_id);
-                    await fetchUsers(user.org_id);
-                } else if (!user) {
-                    setLoading(true);
-                } else {
-                    toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
-                    setLoading(false);
-                    router.push('/login');
-                }
-            } else {
-                router.push('/login');
-                setLoading(false);
-            }
-        };
-
-        initializePage();
+        if (authLoading) return; // Wait for auth to load
         
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-             if (event === 'SIGNED_OUT') {
-                  router.push('/login');
-              }
-          }
-        );
-        return () => authListener.subscription.unsubscribe();
-    }, [router, toast, fetchUsers]);
+        if (!appUser) {
+            // User not authenticated, will be redirected by auth context
+            return;
+        }
+        
+        if (appUser.org_id) {
+            setOrgId(appUser.org_id);
+            fetchUsers(appUser.org_id);
+        } else {
+            toast({ title: 'Error', description: 'Could not find user organization.', variant: 'destructive' });
+            setLoading(false);
+        }
+    }, [appUser, authLoading, toast, fetchUsers]);
 
     const handleUserApproval = async (userId: string, newStatus: 'active' | 'rejected') => {
         try {
