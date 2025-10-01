@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 
-type EnrichedBooking = Booking & { userName: string, spaceName: string };
+type EnrichedBooking = Booking & { userName: string, spaceName: string, seat: string };
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
@@ -67,10 +67,10 @@ export default function AdminDashboardPage() {
       const allBookings = bookingsRes.data as Booking[];
       const allUsers = usersRes.data as User[];
 
-      const usersMap = new Map(allUsers.map(u => [u.id, u.full_name]));
+      const usersMap = new Map(allUsers.map(u => [u.id, u.full_name] as [string, string | null]));
       const spacesMap = new Map([
-          ...fetchedCafeterias.map(c => [c.id, c.name]),
-          ...fetchedMeetingRooms.map(r => [r.id, r.name])
+          ...fetchedCafeterias.map(c => [c.id, c.name] as [string, string]),
+          ...fetchedMeetingRooms.map(r => [r.id, r.name] as [string, string])
       ]);
 
       setCafeterias(fetchedCafeterias);
@@ -312,10 +312,12 @@ export default function AdminDashboardPage() {
                                     <DialogHeader>
                                         <DialogTitle>Edit Layout for {cafe.name}</DialogTitle>
                                     </DialogHeader>
+                                    {selectedCafeteria && (
                                     <CafeteriaLayoutEditor 
-                                        cafeteria={selectedCafeteria}
+                                        cafeteria={{...selectedCafeteria, org_id: selectedCafeteria.org_id || undefined}}
                                         onLayoutChange={setCurrentLayout} 
                                     />
+                                    )}
                                     <DialogFooter>
                                         <DialogClose asChild>
                                            <Button variant="outline">Cancel</Button>

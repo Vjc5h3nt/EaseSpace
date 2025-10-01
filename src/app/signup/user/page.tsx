@@ -33,12 +33,16 @@ export default function UserSignupPage() {
 
   useEffect(() => {
     const fetchOrgs = async () => {
-      const { data, error } = await supabase.from("organizations").select("id, name, org_id");
+      const { data, error } = await supabase.from("organizations").select("id, name, org_id, created_at, updated_at");
       if (error) {
         console.error("Error fetching organizations:", error);
         toast({ title: "Error", description: "Could not fetch organizations.", variant: "destructive" });
       } else if (data) {
-        setOrganizations(data);
+        setOrganizations((data || []).map(org => ({
+            ...org,
+            created_at: org.created_at || '',
+            updated_at: org.updated_at || ''
+        })));
       }
     };
     fetchOrgs();

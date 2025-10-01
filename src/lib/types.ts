@@ -1,5 +1,4 @@
 
-import type { Timestamp } from "firebase/firestore";
 import type { Database } from "./database.types";
 
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"];

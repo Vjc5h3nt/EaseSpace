@@ -370,7 +370,7 @@ export default function OnboardingPage() {
                         <DialogTitle>Edit Layout for {selectedCafeteria.name}</DialogTitle>
                     </DialogHeader>
                     <CafeteriaLayoutEditor 
-                        cafeteria={selectedCafeteria} 
+                        cafeteria={{...selectedCafeteria, org_id: selectedCafeteria.org_id || undefined}} 
                         onLayoutChange={setCurrentLayout}
                     />
                     <DialogFooter>

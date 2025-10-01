@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import type { User, Cafeteria, MeetingRoom } from "@/lib/types";
+import type { User, Cafeteria, MeetingRoom, TableLayout } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon, Utensils, Building, ArrowRight, CalendarCheck } from "lucide-react";
@@ -28,7 +28,10 @@ export default function UserDashboardPage() {
             .eq('org_id', org_id);
 
         if (cafeteriasError) throw cafeteriasError;
-        setCafeterias(cafeteriasData || []);
+        setCafeterias((cafeteriasData || []).map(cafe => ({
+            ...cafe,
+            layout: (cafe.layout as TableLayout[]) || []
+        })));
 
         const { data: meetingRoomsData, error: meetingRoomsError } = await supabase
             .from('meeting_rooms')

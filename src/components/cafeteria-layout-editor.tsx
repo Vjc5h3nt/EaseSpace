@@ -46,7 +46,7 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
         const offsetX = e.clientX - tableRect.left;
         const offsetY = e.clientY - tableRect.top;
         setDraggingTable({ tableIndex, offsetX, offsetY });
-        e.currentTarget.style.cursor = 'grabbing';
+        (e.currentTarget as HTMLElement).style.cursor = 'grabbing';
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
