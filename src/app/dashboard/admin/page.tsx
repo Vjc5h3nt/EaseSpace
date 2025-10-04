@@ -359,7 +359,7 @@ export default function AdminDashboardPage() {
                             <h4 className="font-semibold text-base">Cafeterias</h4>
                             <Dialog open={isAddCafeDialogOpen} onOpenChange={setIsAddCafeDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add Cafeteria</Button>
+                                    <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add Cafeteria</Button>
                                 </DialogTrigger>
                                 <DialogContent>
                                     <DialogHeader>
@@ -417,7 +417,7 @@ export default function AdminDashboardPage() {
                             <h4 className="font-semibold text-base">Meeting Rooms</h4>
                             <Dialog open={isAddRoomDialogOpen} onOpenChange={setIsAddRoomDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add Room</Button>
+                                    <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add Room</Button>
                                 </DialogTrigger>
                                 <DialogContent>
                                     <DialogHeader>
@@ -617,5 +617,7 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
 
     
