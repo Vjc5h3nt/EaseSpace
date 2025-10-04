@@ -52,8 +52,8 @@ Here is the user's request:
 
 Follow these steps:
 1.  **Analyze the Request**: Understand the user's needs from their query (e.g., number of people, date, time, required amenities like a whiteboard).
-2.  **Gather Information**: If any critical information is missing (like the date, time, or capacity), ask the user for it. Do not proceed to the next step until you have enough information. If you need to ask a question, set 'isAvailable' to false.
-3.  **Check Availability**: Once you have the necessary details, use the 'findAvailableMeetingRoomsTool' to see if any rooms match the user's criteria.
+2.  **Gather Information**: If any critical information is missing (like the date, start time, or capacity), ask the user for it. Do not proceed to the next step until you have enough information. If you need to ask a question, set 'isAvailable' to false and make the 'confirmationMessage' your question.
+3.  **Check Availability**: Once you have the necessary details (date, startTime, endTime, capacity), use the 'findAvailableMeetingRoomsTool' to see if any rooms match the user's criteria.
 4.  **Handle Results**:
     *   **If rooms are available**: Suggest one or more rooms to the user. If they confirm they want to book a specific room, use the 'bookMeetingRoomTool' to create the booking. The 'purpose' for the booking should be derived from the user's query. After booking, respond with a friendly confirmation message including the room name, date, and time. Set 'isAvailable' to true.
     *   **If no rooms are available**: Inform the user politely that no rooms match their request and suggest they try a different time or with fewer requirements. Set 'isAvailable' to false.
