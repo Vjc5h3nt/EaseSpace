@@ -1,3 +1,4 @@
+
 // This file is machine-generated - do not edit!
 
 'use server';
@@ -19,6 +20,11 @@ const UserNaturalLanguageBookingInputSchema = z.object({
   userId: z.string().describe('The authenticated user ID.'),
   orgId: z.string().describe('The user\'s organization ID.'),
   currentDate: z.string().describe('The current date in YYYY-MM-DD format.'),
+  // Context fields to maintain conversation state
+  date: z.string().optional().describe('The date for the booking, if already known.'),
+  startTime: z.string().optional().describe('The start time for the booking, if already known.'),
+  endTime: z.string().optional().describe('The end time for the booking, if already known.'),
+  capacity: z.number().optional().describe('The required capacity for the room, if already known.'),
 });
 export type UserNaturalLanguageBookingInput = z.infer<typeof UserNaturalLanguageBookingInputSchema>;
 
@@ -27,6 +33,13 @@ const UserNaturalLanguageBookingOutputSchema = z.object({
     .string()
     .describe('The confirmation message for the booking, including booking details. Or a question to the user to clarify information.'),
   isAvailable: z.boolean().describe('Whether the requested resource is available. This should be false if more information is needed.'),
+  // The context object is returned to be maintained by the client
+  context: z.object({
+    date: z.string().optional(),
+    startTime: z.string().optional(),
+    endTime: z.string().optional(),
+    capacity: z.number().optional(),
+  }).describe('The current state of booking details collected so far.'),
 });
 export type UserNaturalLanguageBookingOutput = z.infer<typeof UserNaturalLanguageBookingOutputSchema>;
 
@@ -44,26 +57,29 @@ const prompt = ai.definePrompt({
   prompt: `You are a friendly and helpful booking assistant for an organization's workspace.
 Your goal is to help users book meeting rooms based on their natural language requests.
 
-You already know who the user is (userId: {{{userId}}}) and which organization they belong to (orgId: {{{orgId}}}). Do not ask them for this information.
+You already know who the user is (userId: {{{userId}}}) and which organization they belong to (orgId: {{{orgId}}}). Do not ask for this information.
 The current date is {{{currentDate}}}. Use this as a reference if the user mentions 'today' or 'tomorrow'.
 
-Here is the user's request:
+**Conversation Context So Far:**
+- Date: {{{date}}}
+- Start Time: {{{startTime}}}
+- End Time: {{{endTime}}}
+- Capacity: {{{capacity}}}
+
+Here is the user's latest request:
 "{{{query}}}"
 
-Follow these steps:
-1.  **Analyze the Request**: Understand the user's needs from their query (e.g., number of people, date, time, required amenities like a whiteboard).
-2.  **Gather Information**: If any critical information is missing (like the date, start time, or capacity), ask the user for it. Do not proceed to the next step until you have enough information. If you need to ask a question, set 'isAvailable' to false and make the 'confirmationMessage' your question.
-3.  **Check Availability**: Once you have the necessary details (date, startTime, endTime, capacity), use the 'findAvailableMeetingRoomsTool' to see if any rooms match the user's criteria.
-4.  **Handle Results**:
-    *   **If rooms are available**: Suggest one or more rooms to the user. If they confirm they want to book a specific room, use the 'bookMeetingRoomTool' to create the booking. The 'purpose' for the booking should be derived from the user's query. After booking, respond with a friendly confirmation message including the room name, date, and time. Set 'isAvailable' to true.
-    *   **If no rooms are available**: Inform the user politely that no rooms match their request and suggest they try a different time or with fewer requirements. Set 'isAvailable' to false.
-    *   **If there is an error**: Apologize and say you were unable to complete the request. Set 'isAvailable' to false.
+**Your Task:**
+1.  **Analyze and Update Context**: Parse the user's query to extract any new booking details (date, time, duration, capacity, etc.). Update the internal context with this new information. The user might provide all details at once or one by one.
+2.  **Identify Missing Information**: Review the context. What critical information is still missing? (You need date, startTime, endTime, and capacity).
+3.  **Take Action**:
+    *   **If information is missing**: Ask the user for **only the missing pieces of information**. Be specific. For example, if you have the date and time but not the capacity, ask "How many people will be attending?". Do NOT ask for information you already have. Set 'isAvailable' to false and make 'confirmationMessage' your question.
+    *   **If you have all the information**: Use the 'findAvailableMeetingRoomsTool' to check for rooms.
+        *   **If rooms are available**: Suggest one or more rooms to the user. If they confirm, use 'bookMeetingRoomTool' to book it. After booking, respond with a friendly confirmation message. Set 'isAvailable' to true.
+        *   **If no rooms are available**: Inform the user politely and suggest they try a different time. Set 'isAvailable' to false.
+    *   **If there is an error**: Apologize and state that you were unable to complete the request. Set 'isAvailable' to false.
 
-**Crucial Instructions**:
--   Only call a tool when you have enough information. For example, you need a date, start time, end time, and capacity to find a room.
--   When you ask the user for more information, make the 'confirmationMessage' your question and set 'isAvailable' to 'false'.
--   When you have successfully booked a room, the 'confirmationMessage' should be the final success message, and 'isAvailable' should be 'true'.
--   Pass the 'userId' and 'orgId' to the tools when you call them.
+**Crucial**: Always return the complete, updated context object ('date', 'startTime', 'endTime', 'capacity') in your response so the conversation can continue. If the user's query contains a number, it's most likely the capacity.
 `,
 });
 
