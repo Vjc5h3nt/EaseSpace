@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import Papa from 'papaparse';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface InvitedUser {
     fullName: string;
@@ -236,6 +237,11 @@ export default function UsersPage() {
                 <CardHeader>
                     <CardTitle>Invite Users</CardTitle>
                     <CardDescription>Bulk invite users by uploading a CSV file with 'email' and 'fullName' columns.</CardDescription>
+                     <Alert variant="destructive">
+                        <AlertDescription>
+                           This feature is still in beta development. Firebase blaze subscription is required.
+                        </AlertDescription>
+                    </Alert>
                 </CardHeader>
                 <CardContent>
                     {invitedUsers.length === 0 ? (
@@ -405,5 +411,3 @@ function UserTable({ title, users, loading, showActions = false, onAction, onVie
         </Card>
     );
 }
-
-    
