@@ -75,7 +75,7 @@ Here is the user's latest request:
         *   **If no rooms are available**: Inform the user politely and suggest they try a different time. Set 'isAvailable' to false.
     *   **If there is an error**: Apologize and state that you were unable to complete the request. Set 'isAvailable' to false.
 
-**Crucial**: Always return the complete, updated context object ('date', 'startTime', 'endTime', 'capacity') in your response so the conversation can continue. If the user's query contains a number, it's most likely the capacity.
+**Crucial**: Always return the complete, updated context object ('date', 'startTime', 'endTime', 'capacity') in your response so the conversation can continue. If a field is not mentioned, retain the last known value. If the user's query contains a number, it's most likely the capacity.
 `,
 });
 
