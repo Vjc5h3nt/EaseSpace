@@ -9,10 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon, Upload, Building, CalendarCheck, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirestore, useStorage } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -23,12 +22,12 @@ export default function UserProfilePage() {
     const { toast } = useToast();
     const auth = useAuth();
     const db = useFirestore();
-    const storage = useStorage();
     const [user, setUser] = useState<User | null>(null);
     const [profilePic, setProfilePic] = useState<File | null>(null);
     const [profilePicUrl, setProfilePicUrl] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (!auth) return;
@@ -60,15 +59,38 @@ export default function UserProfilePage() {
     };
 
     const handleUpdateProfilePicture = async () => {
-        if (!auth?.currentUser || !profilePic || !db || !storage) {
-            toast({ title: "Error", description: "Could not save picture. Please try again.", variant: "destructive" });
+        if (!auth?.currentUser || !profilePic || !db) {
+            toast({ title: "Error", description: "No file selected or user not logged in.", variant: "destructive" });
             return;
         }
-
+        setIsSaving(true);
+        
         try {
-            const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
-            await uploadBytes(storageRef, profilePic);
-            const downloadURL = await getDownloadURL(storageRef);
+            // Get a presigned URL from our API route
+            const response = await fetch('/api/upload-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileType: profilePic.type, folder: 'profilePictures' }),
+            });
+    
+            if (!response.ok) {
+                throw new Error('Failed to get upload URL.');
+            }
+    
+            const { uploadUrl, publicUrl } = await response.json();
+    
+            // Upload the file to R2
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: profilePic,
+                headers: { 'Content-Type': profilePic.type },
+            });
+    
+            if (!uploadResponse.ok) {
+                throw new Error('Image upload failed.');
+            }
+    
+            const downloadURL = publicUrl;
             
             // Update auth profile
             await updateProfile(auth.currentUser, { photoURL: downloadURL });
@@ -80,8 +102,11 @@ export default function UserProfilePage() {
             setProfilePicUrl(downloadURL);
             setProfilePic(null); // Reset file input state
             toast({ title: "Success", description: "Profile picture updated successfully!" });
+
         } catch (error: any) {
             toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+        } finally {
+            setIsSaving(false);
         }
     };
     
@@ -163,7 +188,9 @@ export default function UserProfilePage() {
                                     <Upload className="mr-2 h-4 w-4" /> Change Picture
                                 </Button>
                                 {profilePic && (
-                                    <Button onClick={handleUpdateProfilePicture}>Save Picture</Button>
+                                    <Button onClick={handleUpdateProfilePicture} disabled={isSaving}>
+                                        {isSaving ? 'Saving...' : 'Save Picture'}
+                                    </Button>
                                 )}
                             </div>
                         </div>

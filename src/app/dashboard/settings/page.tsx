@@ -9,23 +9,22 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirestore, useStorage } from '@/firebase';
-import { onAuthStateChanged, updateProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
+import { useAuth, useFirestore } from '@/firebase';
+import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { User } from '@/lib/types';
 
 export default function SettingsPage() {
     const { toast } = useToast();
     const auth = useAuth();
     const db = useFirestore();
-    const storage = useStorage();
     const [user, setUser] = useState<User | null>(null);
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
     const [profilePic, setProfilePic] = useState<File | null>(null);
     const [profilePicUrl, setProfilePicUrl] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (!auth) return;
@@ -38,7 +37,7 @@ export default function SettingsPage() {
                     setUser(userData);
                     setDisplayName(currentUser.displayName || userData.fullName || '');
                     setEmail(currentUser.email || '');
-                    setProfilePicUrl(currentUser.photoURL || '');
+                    setProfilePicUrl(currentUser.photoURL || userData.photoURL || '');
                 }
             }
         });
@@ -54,40 +53,75 @@ export default function SettingsPage() {
     };
 
     const handleSaveChanges = async () => {
-        if (!auth?.currentUser || !db || !storage) return;
+        if (!auth?.currentUser || !db) return;
+        setIsSaving(true);
 
         try {
-            // Update profile picture if changed
+            let finalPhotoURL = profilePicUrl;
+
+            // 1. If a new profile picture is selected, upload it to R2
             if (profilePic) {
-                const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
-                await uploadBytes(storageRef, profilePic);
-                const downloadURL = await getDownloadURL(storageRef);
-                await updateProfile(auth.currentUser, { photoURL: downloadURL });
-                setProfilePicUrl(downloadURL);
+                // Get the presigned URL from our API route
+                const presignedUrlResponse = await fetch('/api/upload-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileType: profilePic.type, folder: 'profilePictures' }),
+                });
+
+                if (!presignedUrlResponse.ok) {
+                    throw new Error('Failed to get an upload URL.');
+                }
+                const { uploadUrl, publicUrl } = await presignedUrlResponse.json();
+
+                // Upload the file to R2 using the presigned URL
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    body: profilePic,
+                    headers: { 'Content-Type': profilePic.type },
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('Failed to upload image.');
+                }
+                
+                finalPhotoURL = publicUrl;
             }
 
-            // Update display name
-            if (displayName !== auth.currentUser.displayName) {
-                await updateProfile(auth.currentUser, { displayName });
-                const userDocRef = doc(db, "users", auth.currentUser.uid);
-                await updateDoc(userDocRef, { fullName: displayName });
-            }
+            // 2. Update Firebase Auth and Firestore with the new info
+            const userDocRef = doc(db, "users", auth.currentUser.uid);
+
+            await updateProfile(auth.currentUser, {
+                displayName: displayName,
+                photoURL: finalPhotoURL
+            });
             
-            // Update email if changed
-            if (email !== auth.currentUser.email) {
-                await verifyBeforeUpdateEmail(auth.currentUser, email);
-                 toast({
-                    title: "Verification Email Sent",
-                    description: `Please check your new email (${email}) to verify the change.`,
-                });
-            }
+            await updateDoc(userDocRef, { 
+                fullName: displayName,
+                photoURL: finalPhotoURL
+            });
+
+            // Update local state
+            setProfilePicUrl(finalPhotoURL);
+
+            // This part for email update is commented out as it requires re-authentication, we can re-add if needed
+            // if (email !== auth.currentUser.email) {
+            //     await verifyBeforeUpdateEmail(auth.currentUser, email);
+            //      toast({
+            //         title: "Verification Email Sent",
+            //         description: `Please check your new email (${email}) to verify the change.`,
+            //     });
+            // }
 
             toast({ title: "Success", description: "Profile updated successfully!" });
+
         } catch (error: any) {
             toast({ title: "Error", description: error.message, variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+            setProfilePic(null);
         }
     };
-
+    
     if (!user) {
         return <div>Loading...</div>;
     }
@@ -126,9 +160,12 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email Address</Label>
-                        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled />
+                        <p className="text-xs text-muted-foreground">Changing your email is disabled for now.</p>
                     </div>
-                     <Button onClick={handleSaveChanges}>Save Changes</Button>
+                     <Button onClick={handleSaveChanges} disabled={isSaving}>
+                        {isSaving ? 'Saving...' : 'Save Changes'}
+                     </Button>
                 </CardContent>
             </Card>
         </div>
