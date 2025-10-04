@@ -13,7 +13,7 @@ export interface User {
   email: string;
   fullName: string;
   role: 'admin' | 'user';
-  status: 'active' | 'pending' | 'rejected';
+  status: 'active' | 'pending' | 'rejected' | 'disabled';
   mobileNumber?: string;
   employeeId?: string;
   onboardingComplete?: boolean;

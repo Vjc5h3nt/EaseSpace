@@ -1,20 +1,22 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Check, X, Eye, User as UserIcon } from 'lucide-react';
+import { PlusCircle, Check, X, Eye, User as UserIcon, UserCheck, UserX } from 'lucide-react';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { useAuth, useFirestore } from '@/firebase';
 import type { User } from '@/lib/types';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 export default function UsersPage() {
     const { toast } = useToast();
@@ -25,6 +27,7 @@ export default function UsersPage() {
     const [loading, setLoading] = useState(true);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [filterStatus, setFilterStatus] = useState('all');
 
     const fetchUsers = async (orgId: string) => {
         if (!orgId || !db) return;
@@ -66,14 +69,35 @@ export default function UsersPage() {
         }
     };
     
+    const handleToggleUserStatus = async (user: User) => {
+        if (!db) return;
+        const newStatus = user.status === 'active' ? 'disabled' : 'active';
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            await updateDoc(userRef, { status: newStatus });
+            toast({ title: 'Success', description: `User has been ${newStatus}.` });
+            if (orgId) fetchUsers(orgId); // Refresh users list
+        } catch (error) {
+            console.error('Error toggling user status:', error);
+            toast({ title: 'Error', description: 'Failed to update user status.', variant: 'destructive' });
+        }
+    }
+    
     const handleViewUser = (user: User) => {
         setSelectedUser(user);
         setIsViewModalOpen(true);
     }
 
-    const activeUsers = users.filter(u => u.status === 'active' && u.role === 'user');
     const pendingUsers = users.filter(u => u.status === 'pending');
     const admins = users.filter(u => u.role === 'admin');
+
+    const allOtherUsers = useMemo(() => {
+        let filteredUsers = users.filter(u => u.role === 'user' && u.status !== 'pending');
+        if (filterStatus !== 'all') {
+            filteredUsers = filteredUsers.filter(u => u.status === filterStatus);
+        }
+        return filteredUsers;
+    }, [users, filterStatus]);
 
     return (
         <div className="flex flex-col gap-8">
@@ -92,14 +116,27 @@ export default function UsersPage() {
                     <Tabs defaultValue="pending">
                         <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="pending">Pending Requests</TabsTrigger>
-                            <TabsTrigger value="users">Active Users</TabsTrigger>
+                            <TabsTrigger value="users">All Users</TabsTrigger>
                             <TabsTrigger value="admins">Admins</TabsTrigger>
                         </TabsList>
                         <TabsContent value="pending" className="mt-4">
                             <UserTable title="Pending Requests" users={pendingUsers} onAction={handleUserApproval} onView={handleViewUser} showActions={true} loading={loading} />
                         </TabsContent>
                         <TabsContent value="users" className="mt-4">
-                            <UserTable title="Active Users" users={activeUsers} onView={handleViewUser} loading={loading} />
+                             <div className="flex items-center gap-4 mb-4">
+                                <Select onValueChange={setFilterStatus} value={filterStatus}>
+                                    <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="Filter by status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="disabled">Disabled</SelectItem>
+                                        <SelectItem value="rejected">Rejected</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <UserTable title="All Users" users={allOtherUsers} onView={handleViewUser} onToggleStatus={handleToggleUserStatus} loading={loading} />
                         </TabsContent>
                         <TabsContent value="admins" className="mt-4">
                              <UserTable title="Administrators" users={admins} onView={handleViewUser} loading={loading} />
@@ -125,7 +162,7 @@ export default function UsersPage() {
                             </div>
                             <div className="flex gap-4">
                                 <Badge variant="secondary">Role: {selectedUser.role}</Badge>
-                                <Badge variant={selectedUser.status === 'active' ? 'default' : selectedUser.status === 'pending' ? 'secondary' : 'destructive'} className={selectedUser.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
+                                <Badge variant={selectedUser.status === 'active' ? 'default' : ['pending', 'rejected', 'disabled'].includes(selectedUser.status) ? 'destructive' : 'secondary'} className={selectedUser.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
                                     Status: {selectedUser.status}
                                 </Badge>
                             </div>
@@ -144,9 +181,10 @@ interface UserTableProps {
     showActions?: boolean;
     onAction?: (userId: string, newStatus: 'active' | 'rejected') => void;
     onView: (user: User) => void;
+    onToggleStatus?: (user: User) => void;
 }
 
-function UserTable({ title, users, loading, showActions = false, onAction, onView }: UserTableProps) {
+function UserTable({ title, users, loading, showActions = false, onAction, onView, onToggleStatus }: UserTableProps) {
     return (
         <Card>
             <CardHeader>
@@ -178,7 +216,10 @@ function UserTable({ title, users, loading, showActions = false, onAction, onVie
                                         <Badge variant={
                                             user.status === 'active' ? 'default' :
                                             user.status === 'pending' ? 'secondary' : 'destructive'
-                                        } className={user.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
+                                        } className={cn(
+                                            user.status === 'active' && 'bg-green-100 text-green-800',
+                                            user.status === 'disabled' && 'bg-red-100 text-red-800'
+                                        )}>
                                             {user.status}
                                         </Badge>
                                     </TableCell>
@@ -191,6 +232,16 @@ function UserTable({ title, users, loading, showActions = false, onAction, onVie
                                                 <Button variant="outline" size="icon" onClick={() => onAction(user.uid, 'active')}><Check className="h-4 w-4 text-green-600" /></Button>
                                                 <Button variant="outline" size="icon" onClick={() => onAction(user.uid, 'rejected')}><X className="h-4 w-4 text-red-600" /></Button>
                                             </>
+                                        )}
+                                        {onToggleStatus && user.role === 'user' && (user.status === 'active' || user.status === 'disabled') && (
+                                            <Button 
+                                                variant="outline" 
+                                                size="icon" 
+                                                onClick={() => onToggleStatus(user)}
+                                                title={user.status === 'active' ? 'Disable User' : 'Enable User'}
+                                            >
+                                                {user.status === 'active' ? <UserX className="h-4 w-4 text-red-600" /> : <UserCheck className="h-4 w-4 text-green-600" />}
+                                            </Button>
                                         )}
                                     </TableCell>
                                 </TableRow>
@@ -208,5 +259,3 @@ function UserTable({ title, users, loading, showActions = false, onAction, onVie
         </Card>
     );
 }
-
-    

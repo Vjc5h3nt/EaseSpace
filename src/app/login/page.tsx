@@ -83,7 +83,10 @@ export default function UserLoginPage() {
           } else if (userData.status === 'rejected') {
               toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
               await auth.signOut();
-          } else {
+          } else if (userData.status === 'disabled') {
+              toast({ title: "Account Disabled", description: "Your account has been disabled by an administrator.", variant: "destructive"});
+              await auth.signOut();
+          } else if (userData.status === 'active') {
               toast({ title: "Success", description: "Logged in successfully." });
               router.push("/dashboard/user"); 
           }
