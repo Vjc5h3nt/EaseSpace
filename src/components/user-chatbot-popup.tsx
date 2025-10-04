@@ -8,6 +8,7 @@ import { Bot } from "lucide-react";
 import { ChatInterface } from "@/components/chat-interface";
 import { userNaturalLanguageBooking } from "@/ai/flows/user-natural-language-booking";
 import type { User } from "@/lib/types";
+import { format } from 'date-fns';
 
 interface UserChatbotPopupProps {
     user: User;
@@ -18,10 +19,12 @@ export function UserChatbotPopup({ user }: UserChatbotPopupProps) {
 
     const handleSendMessage = async (message: string): Promise<string> => {
         try {
+            const currentDate = format(new Date(), 'yyyy-MM-dd');
             const result = await userNaturalLanguageBooking({ 
                 query: message,
                 userId: user.uid,
                 orgId: user.org_id,
+                currentDate: currentDate,
              });
             return result.confirmationMessage;
         } catch (e) {

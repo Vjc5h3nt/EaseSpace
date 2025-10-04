@@ -18,6 +18,7 @@ const UserNaturalLanguageBookingInputSchema = z.object({
   query: z.string().describe('The user query in natural language for booking a resource.'),
   userId: z.string().describe('The authenticated user ID.'),
   orgId: z.string().describe('The user\'s organization ID.'),
+  currentDate: z.string().describe('The current date in YYYY-MM-DD format.'),
 });
 export type UserNaturalLanguageBookingInput = z.infer<typeof UserNaturalLanguageBookingInputSchema>;
 
@@ -42,6 +43,9 @@ const prompt = ai.definePrompt({
   tools: [findAvailableMeetingRoomsTool, bookMeetingRoomTool],
   prompt: `You are a friendly and helpful booking assistant for an organization's workspace.
 Your goal is to help users book meeting rooms based on their natural language requests.
+
+You already know who the user is (userId: {{{userId}}}) and which organization they belong to (orgId: {{{orgId}}}). Do not ask them for this information.
+The current date is {{{currentDate}}}. Use this as a reference if the user mentions 'today' or 'tomorrow'.
 
 Here is the user's request:
 "{{{query}}}"
