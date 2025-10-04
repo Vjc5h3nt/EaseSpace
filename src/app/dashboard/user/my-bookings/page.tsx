@@ -17,7 +17,7 @@ import { Building, CalendarCheck, LogOut, User as UserIcon, ArrowUpDown, Calenda
 import { Logo } from '@/components/logo';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format, isWithinInterval, addMinutes, subMinutes } from 'date-fns';
 
 type EnrichedBooking = Booking & { spaceName: string };
 type SortConfig = { key: keyof EnrichedBooking | 'slotDateTime' | 'createdAt'; direction: 'ascending' | 'descending' } | null;
@@ -42,7 +42,7 @@ export default function MyBookingsPage() {
             const fetchedBookings: EnrichedBooking[] = [];
 
             for (const bookingDoc of querySnapshot.docs) {
-                const bookingData = { id: bookingDoc.id, ...bookingDoc.data() } as Booking;
+                const bookingData = { id: bookingDoc.id, ...doc.data() } as Booking;
                 let spaceName = "Unknown Space";
 
                 if (bookingData.spaceType && bookingData.spaceId) {
@@ -78,13 +78,25 @@ export default function MyBookingsPage() {
         return () => unsubscribe();
     }, [router, auth]);
 
+    const handleCheckIn = async (bookingId: string) => {
+        if (!db) return;
+        try {
+            const bookingRef = doc(db, 'bookings', bookingId);
+            await updateDoc(bookingRef, { checkedIn: true });
+            toast({ title: 'Success', description: 'You have been checked in.' });
+            if(user) fetchBookings(user.uid); 
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to check in.', variant: 'destructive' });
+        }
+    };
+
     const handleCancelBooking = async (bookingId: string) => {
         if (!db) return;
         try {
             const bookingRef = doc(db, 'bookings', bookingId);
             await updateDoc(bookingRef, { status: 'Cancelled' });
             toast({ title: 'Success', description: 'Booking has been cancelled.' });
-            if(user) fetchBookings(user.uid); // Refresh bookings
+            if(user) fetchBookings(user.uid);
         } catch (error) {
             console.error("Error cancelling booking:", error);
             toast({ title: 'Error', description: 'Failed to cancel booking.', variant: 'destructive' });
@@ -224,7 +236,7 @@ export default function MyBookingsPage() {
                                             <ArrowUpDown className="ml-2 h-4 w-4" />
                                         </Button>
                                     </TableHead>
-                                    <TableHead>Seats Booked</TableHead>
+                                    <TableHead>Seats/Purpose</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Action</TableHead>
                                 </TableRow>
@@ -235,37 +247,59 @@ export default function MyBookingsPage() {
                                         <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
                                     </TableRow>
                                 ) : sortedAndFilteredBookings.length > 0 ? (
-                                    sortedAndFilteredBookings.map((booking) => (
+                                    sortedAndFilteredBookings.map((booking) => {
+                                        const now = new Date();
+                                        const bookingStart = new Date(`${booking.date}T${booking.startTime}`);
+                                        const checkInWindowStart = subMinutes(bookingStart, 15);
+                                        const checkInWindowEnd = addMinutes(bookingStart, 15);
+                                        const showCheckIn = booking.spaceType === 'meetingRoom' &&
+                                                            booking.status === 'Confirmed' &&
+                                                            !booking.checkedIn &&
+                                                            isWithinInterval(now, { start: checkInWindowStart, end: checkInWindowEnd });
+
+                                        return (
                                         <TableRow key={booking.id}>
                                             <TableCell className="font-medium">{booking.spaceName}</TableCell>
                                             <TableCell>{booking.date} at {booking.startTime}</TableCell>
                                             <TableCell>
                                                 {booking.createdAt instanceof Timestamp ? format(booking.createdAt.toDate(), "PPpp") : 'N/A'}
                                             </TableCell>
-                                            <TableCell>{booking.seatCount || 'N/A'}</TableCell>
+                                            <TableCell>{booking.seatCount || booking.purpose || 'N/A'}</TableCell>
                                             <TableCell>
-                                                <Badge 
-                                                    variant={
-                                                        booking.status === 'Confirmed' ? 'default' :
-                                                        booking.status === 'Cancelled' ? 'destructive' :
-                                                        'secondary'
-                                                    }
-                                                    className={
-                                                        booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' : ''
-                                                    }
-                                                >
-                                                    {booking.status}
-                                                </Badge>
+                                                <div className="flex flex-col gap-1 items-start">
+                                                    <Badge 
+                                                        variant={
+                                                            booking.status === 'Confirmed' ? 'default' :
+                                                            booking.status === 'Cancelled' ? 'destructive' :
+                                                            'secondary'
+                                                        }
+                                                        className={
+                                                            booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' : ''
+                                                        }
+                                                    >
+                                                        {booking.status}
+                                                    </Badge>
+                                                    {booking.status === 'Confirmed' && booking.spaceType === 'meetingRoom' && (
+                                                        <Badge variant={booking.checkedIn ? "default" : "secondary"} className={booking.checkedIn ? 'bg-blue-100 text-blue-800' : ''}>
+                                                            {booking.checkedIn ? "Checked-In" : "Not Checked-In"}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
-                                                {booking.status === 'Confirmed' && (
-                                                    <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)}>
+                                                {showCheckIn && (
+                                                    <Button variant="default" size="sm" onClick={() => handleCheckIn(booking.id)}>
+                                                        Check-In
+                                                    </Button>
+                                                )}
+                                                {booking.status === 'Confirmed' && !showCheckIn && (
+                                                    <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)} disabled={bookingStart < now}>
                                                         Cancel
                                                     </Button>
                                                 )}
                                             </TableCell>
                                         </TableRow>
-                                    ))
+                                    )})
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-24 text-center">

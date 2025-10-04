@@ -63,6 +63,7 @@ export interface Booking {
     participants?: string[];
     employeeId?: string;
     contact?: string;
+    checkedIn?: boolean; // New field for no-show tracking
 }
 
 export interface Analytics {
