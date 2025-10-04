@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Trash2, Building, Utensils, AlertTriangle } from "lucide-react";
+import { PlusCircle, Trash2, Building, Utensils, AlertTriangle, X } from "lucide-react";
 import type { Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useFirestore } from '@/firebase';
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { CafeteriaLayoutEditor } from '@/components/cafeteria-layout-editor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Badge } from '@/components/ui/badge';
 
 
 export default function OnboardingPage() {
@@ -39,7 +40,8 @@ export default function OnboardingPage() {
   const [newCafeteriaName, setNewCafeteriaName] = useState("");
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomCapacity, setNewRoomCapacity] = useState("");
-  const [newRoomAmenities, setNewRoomAmenities] = useState("");
+  const [currentAmenity, setCurrentAmenity] = useState("");
+  const [newRoomAmenities, setNewRoomAmenities] = useState<string[]>([]);
 
   const [selectedCafeteriaIndex, setSelectedCafeteriaIndex] = useState<number | null>(null);
   const [currentLayout, setCurrentLayout] = useState<TableLayout[]>([]);
@@ -89,7 +91,17 @@ export default function OnboardingPage() {
     setCafeterias(cafeterias.filter((_, i) => i !== index));
   };
   
-  // Meeting Room Management
+  const handleAddAmenity = () => {
+    if (currentAmenity && !newRoomAmenities.includes(currentAmenity)) {
+        setNewRoomAmenities([...newRoomAmenities, currentAmenity]);
+        setCurrentAmenity("");
+    }
+  };
+
+  const handleRemoveAmenity = (amenityToRemove: string) => {
+      setNewRoomAmenities(newRoomAmenities.filter(a => a !== amenityToRemove));
+  };
+
   const addMeetingRoom = () => {
     if (newRoomName && newRoomCapacity) {
       setMeetingRooms([
@@ -97,13 +109,14 @@ export default function OnboardingPage() {
         {
           name: newRoomName,
           capacity: parseInt(newRoomCapacity),
-          amenities: newRoomAmenities.split(",").map((a) => a.trim()),
+          amenities: newRoomAmenities,
           imageUrls: [],
         },
       ]);
       setNewRoomName("");
       setNewRoomCapacity("");
-      setNewRoomAmenities("");
+      setNewRoomAmenities([]);
+      setCurrentAmenity("");
     }
   };
   
@@ -232,7 +245,7 @@ export default function OnboardingPage() {
 
             <TabsContent value="meeting-rooms" className="mt-4">
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-4 items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                     <div className="space-y-1">
                         <Label htmlFor="room-name">Room Name</Label>
                         <Input id="room-name" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} placeholder="Conference Room A" />
@@ -241,12 +254,28 @@ export default function OnboardingPage() {
                         <Label htmlFor="room-capacity">Capacity</Label>
                         <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(e.target.value)} placeholder="12" />
                     </div>
-                    <div className="space-y-1 sm:col-span-2 md:col-span-1">
-                        <Label htmlFor="room-amenities">Amenities (comma-separated)</Label>
-                        <Input id="room-amenities" value={newRoomAmenities} onChange={(e) => setNewRoomAmenities(e.target.value)} placeholder="TV, Whiteboard" />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="room-amenities">Amenities</Label>
+                    <div className="flex gap-2">
+                        <Input id="room-amenities" value={currentAmenity} onChange={(e) => setCurrentAmenity(e.target.value)} placeholder="e.g. Whiteboard" />
+                        <Button type="button" onClick={handleAddAmenity}>Add</Button>
                     </div>
-                    <Button onClick={addMeetingRoom} className="w-full sm:w-auto">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Room
+                    <div className="flex flex-wrap gap-2 pt-2">
+                        {newRoomAmenities.map(amenity => (
+                            <Badge key={amenity} variant="secondary" className="flex items-center gap-1">
+                                {amenity}
+                                <button onClick={() => handleRemoveAmenity(amenity)} className="rounded-full hover:bg-muted-foreground/20 p-0.5">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
+                        ))}
+                    </div>
+                </div>
+
+                <div className='flex justify-end'>
+                    <Button onClick={addMeetingRoom}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Room to List
                     </Button>
                 </div>
                  <div className="space-y-2 border rounded-md p-2 max-h-80 overflow-y-auto">
@@ -296,3 +325,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+    

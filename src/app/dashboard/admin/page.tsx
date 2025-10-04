@@ -44,7 +44,8 @@ export default function AdminDashboardPage() {
   const [isAddRoomDialogOpen, setIsAddRoomDialogOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomCapacity, setNewRoomCapacity] = useState("");
-  const [newRoomAmenities, setNewRoomAmenities] = useState("");
+  const [newRoomAmenities, setNewRoomAmenities] = useState<string[]>([]);
+  const [currentAmenity, setCurrentAmenity] = useState("");
 
   // Edit room dialog state
   const [isEditRoomDialogOpen, setIsEditRoomDialogOpen] = useState(false);
@@ -186,13 +187,24 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const handleAddAmenity = () => {
+    if (currentAmenity && !newRoomAmenities.includes(currentAmenity)) {
+        setNewRoomAmenities([...newRoomAmenities, currentAmenity]);
+        setCurrentAmenity("");
+    }
+  };
+
+  const handleRemoveAmenity = (amenityToRemove: string) => {
+      setNewRoomAmenities(newRoomAmenities.filter(a => a !== amenityToRemove));
+  };
+  
   const handleAddMeetingRoom = async () => {
     if (!newRoomName.trim() || !newRoomCapacity || !orgId || !db) return;
     try {
         await addDoc(collection(db, "meetingRooms"), {
             name: newRoomName,
             capacity: parseInt(newRoomCapacity, 10),
-            amenities: newRoomAmenities.split(',').map(a => a.trim()).filter(Boolean),
+            amenities: newRoomAmenities,
             org_id: orgId,
             imageUrls: []
         });
@@ -200,7 +212,8 @@ export default function AdminDashboardPage() {
         setIsAddRoomDialogOpen(false);
         setNewRoomName("");
         setNewRoomCapacity("");
-        setNewRoomAmenities("");
+        setNewRoomAmenities([]);
+        setCurrentAmenity("");
         fetchDashboardData(orgId);
     } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -222,6 +235,25 @@ export default function AdminDashboardPage() {
         if (editingRoom) {
             const updatedUrls = editingRoom.imageUrls?.filter(url => url !== urlToRemove);
             setEditingRoom({ ...editingRoom, imageUrls: updatedUrls });
+        }
+    };
+
+    const handleAddAmenityToEditingRoom = () => {
+        if (editingRoom && currentAmenity && !editingRoom.amenities.includes(currentAmenity)) {
+            setEditingRoom({
+                ...editingRoom,
+                amenities: [...editingRoom.amenities, currentAmenity]
+            });
+            setCurrentAmenity("");
+        }
+    };
+
+    const handleRemoveAmenityFromEditingRoom = (amenityToRemove: string) => {
+        if (editingRoom) {
+            setEditingRoom({
+                ...editingRoom,
+                amenities: editingRoom.amenities.filter(a => a !== amenityToRemove)
+            });
         }
     };
     
@@ -400,9 +432,24 @@ export default function AdminDashboardPage() {
                                             <Label htmlFor="room-capacity" className="text-right">Capacity</Label>
                                             <Input id="room-capacity" type="number" value={newRoomCapacity} onChange={(e) => setNewRoomCapacity(e.target.value)} className="col-span-3" />
                                         </div>
-                                         <div className="grid grid-cols-4 items-center gap-4">
-                                            <Label htmlFor="room-amenities" className="text-right">Amenities</Label>
-                                            <Input id="room-amenities" value={newRoomAmenities} onChange={(e) => setNewRoomAmenities(e.target.value)} placeholder="Comma-separated" className="col-span-3" />
+                                        <div className="grid grid-cols-4 items-start gap-4">
+                                            <Label htmlFor="room-amenities" className="text-right pt-2">Amenities</Label>
+                                            <div className="col-span-3 space-y-2">
+                                                <div className="flex gap-2">
+                                                    <Input id="room-amenities" value={currentAmenity} onChange={(e) => setCurrentAmenity(e.target.value)} placeholder="e.g. Whiteboard" />
+                                                    <Button type="button" onClick={handleAddAmenity}>Add</Button>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {newRoomAmenities.map(amenity => (
+                                                        <Badge key={amenity} variant="secondary" className="flex items-center gap-1">
+                                                            {amenity}
+                                                            <button onClick={() => handleRemoveAmenity(amenity)} className="rounded-full hover:bg-muted-foreground/20 p-0.5">
+                                                                <X className="h-3 w-3" />
+                                                            </button>
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <DialogFooter>
@@ -444,9 +491,24 @@ export default function AdminDashboardPage() {
                             <Label htmlFor="edit-room-capacity" className="text-right">Capacity</Label>
                             <Input id="edit-room-capacity" type="number" value={editingRoom.capacity} onChange={(e) => setEditingRoom({...editingRoom, capacity: parseInt(e.target.value) || 0})} className="col-span-3" />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-room-amenities" className="text-right">Amenities</Label>
-                            <Input id="edit-room-amenities" value={editingRoom.amenities.join(', ')} onChange={(e) => setEditingRoom({...editingRoom, amenities: e.target.value.split(',').map(a => a.trim())})} placeholder="Comma-separated" className="col-span-3" />
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="edit-room-amenities" className="text-right pt-2">Amenities</Label>
+                            <div className="col-span-3 space-y-2">
+                                <div className="flex gap-2">
+                                    <Input id="edit-room-amenities" value={currentAmenity} onChange={(e) => setCurrentAmenity(e.target.value)} placeholder="Add an amenity" />
+                                    <Button type="button" onClick={handleAddAmenityToEditingRoom}>Add</Button>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                    {editingRoom.amenities.map(amenity => (
+                                        <Badge key={amenity} variant="secondary" className="flex items-center gap-1">
+                                            {amenity}
+                                            <button onClick={() => handleRemoveAmenityFromEditingRoom(amenity)} className="rounded-full hover:bg-muted-foreground/20 p-0.5">
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                          <div className="grid grid-cols-4 items-start gap-4">
                             <Label className="text-right pt-2">Images</Label>
@@ -493,7 +555,7 @@ export default function AdminDashboardPage() {
                     </div>
                 )}
                 <DialogFooter>
-                    <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                    <DialogClose asChild><Button variant="outline" onClick={() => setCurrentAmenity("")}>Cancel</Button></DialogClose>
                     <Button onClick={handleUpdateMeetingRoom}>Save Changes</Button>
                 </DialogFooter>
             </DialogContent>
@@ -555,3 +617,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

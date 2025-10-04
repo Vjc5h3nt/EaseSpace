@@ -24,6 +24,7 @@ import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/cor
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
 
 type EnrichedBooking = Booking & { userName?: string };
 
@@ -435,9 +436,11 @@ function MeetingRoomBookingComponent() {
                         </div>
                          <div className="mt-4">
                              <h3 className="font-semibold mb-2">Amenities</h3>
-                             <ul className="list-disc list-inside text-muted-foreground">
-                                 {selectedRoom.amenities.map(a => <li key={a}>{a}</li>)}
-                             </ul>
+                             <div className="flex flex-wrap gap-2">
+                                 {selectedRoom.amenities.map(a => (
+                                     <Badge key={a} variant="secondary" className="transition-colors hover:bg-primary/20">{a}</Badge>
+                                 ))}
+                             </div>
                          </div>
                         <AlertDialogFooter>
                             <AlertDialogAction onClick={() => setIsDetailsDialogOpen(false)}>Close</AlertDialogAction>
@@ -478,3 +481,5 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
+
+    
