@@ -70,6 +70,7 @@ export function UserChatbotPopup({ user }: UserChatbotPopupProps) {
                 <DialogContent className="sm:max-w-[425px] p-0 border-0">
                     <DialogHeader className="p-4 border-b">
                         <DialogTitle>AI Booking Assistant</DialogTitle>
+                        <p className="text-xs italic text-destructive">Chatbot DB context addition is WIP. Please expect incorrect responses.</p>
                     </DialogHeader>
                     <div className="h-[70vh]">
                      <ChatInterface
