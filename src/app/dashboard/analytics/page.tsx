@@ -16,7 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowUpDown, Calendar as CalendarIcon, X } from 'lucide-react';
+import { ArrowUpDown, Calendar as CalendarIcon, X, FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 
 type EnrichedBooking = Booking & { userName: string, spaceName: string };
@@ -200,6 +202,39 @@ export default function AnalyticsPage() {
         return sortableItems;
     }, [allBookings, sortConfig, filterDate, filterStatus]);
 
+    const handleExportPDF = () => {
+        const reportElement = document.getElementById('analytics-report-content');
+        if (reportElement) {
+            html2canvas(reportElement, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const canvasWidth = canvas.width;
+                const canvasHeight = canvas.height;
+                const ratio = canvasWidth / canvasHeight;
+                const width = pdfWidth;
+                const height = width / ratio;
+                
+                let position = 0;
+                let pageHeight = pdf.internal.pageSize.height;
+                let heightLeft = height;
+
+                pdf.addImage(imgData, 'PNG', 0, position, width, height);
+                heightLeft -= pageHeight;
+    
+                while (heightLeft > 0) {
+                    position = heightLeft - height;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, width, height);
+                    heightLeft -= pageHeight;
+                }
+    
+                pdf.save('Analytics-Report.pdf');
+            });
+        }
+    };
+
 
     if (loading) {
       return <div className="flex justify-center items-center h-full">Loading analytics...</div>
@@ -213,150 +248,166 @@ export default function AnalyticsPage() {
     };
 
     return (
-        <div className="flex flex-col gap-8">
-            <header>
-                <h1 className="text-3xl font-bold text-neutral-900">Analytics</h1>
-                <p className="text-neutral-600 mt-1">Insights into your workspace utilization.</p>
-            </header>
+        <>
+            <div className="flex flex-col gap-8">
+                <header className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-neutral-900">Analytics</h1>
+                        <p className="text-neutral-600 mt-1">Insights into your workspace utilization.</p>
+                    </div>
+                    <Button onClick={handleExportPDF}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Export to PDF
+                    </Button>
+                </header>
 
-            <section>
-                <h2 className="text-xl font-semibold text-neutral-900 mb-4">Overall Statistics</h2>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
-                    <Card>
-                        <CardHeader><CardTitle>Total Bookings</CardTitle></CardHeader>
-                        <CardContent><p className="text-3xl font-bold">{stats.totalBookings}</p></CardContent>
-                    </Card>
-                     <Card>
-                        <CardHeader><CardTitle>No-Shows</CardTitle></CardHeader>
-                        <CardContent><p className="text-3xl font-bold">{stats.noShowCount}</p></CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader><CardTitle>Utilization Rate</CardTitle></CardHeader>
-                        <CardContent><p className="text-3xl font-bold">{stats.utilizationRate}</p></CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader><CardTitle>Peak Hour</CardTitle></CardHeader>
-                        <CardContent><p className="text-3xl font-bold">{stats.peakHour}</p></CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader><CardTitle>Most Popular Space</CardTitle></CardHeader>
-                        <CardContent><p className="text-3xl font-bold">{stats.popularSpace}</p></CardContent>
-                    </Card>
-                </div>
-            </section>
-
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Peak Booking Hours</CardTitle>
-                    </CardHeader>
-                    <CardContent className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={peakHoursData}>
-                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip />
-                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Daily Usage Trends</CardTitle>
-                    </CardHeader>
-                    <CardContent className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={dailyUsageData}>
-                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false}/>
-                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false}/>
-                                <Tooltip />
-                                <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </section>
-             <section>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>All Bookings</CardTitle>
-                         <div className="flex items-center gap-4 pt-4">
-                            <Select onValueChange={setFilterStatus} value={filterStatus}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Filter by status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Statuses</SelectItem>
-                                    <SelectItem value="Confirmed">Confirmed</SelectItem>
-                                    <SelectItem value="Cancelled">Cancelled</SelectItem>
-                                    <SelectItem value="No-Show">No-Show</SelectItem>
-                                    <SelectItem value="Requires Approval">Requires Approval</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant={"outline"} className="w-[280px] justify-start text-left font-normal">
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {filterDate ? format(filterDate, "PPP") : <span>Filter by date...</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus />
-                                </PopoverContent>
-                            </Popover>
-                            {(filterDate || filterStatus !== 'all') && (
-                                <Button variant="ghost" onClick={() => { setFilterDate(undefined); setFilterStatus('all'); }}>
-                                    Clear Filters
-                                </Button>
-                            )}
+                <div id="analytics-report-content">
+                    <section>
+                        <h2 className="text-xl font-semibold text-neutral-900 mb-4">Overall Statistics</h2>
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
+                            <Card>
+                                <CardHeader><CardTitle>Total Bookings</CardTitle></CardHeader>
+                                <CardContent><p className="text-3xl font-bold">{stats.totalBookings}</p></CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader><CardTitle>No-Shows</CardTitle></CardHeader>
+                                <CardContent><p className="text-3xl font-bold">{stats.noShowCount}</p></CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader><CardTitle>Utilization Rate</CardTitle></CardHeader>
+                                <CardContent><p className="text-3xl font-bold">{stats.utilizationRate}</p></CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader><CardTitle>Peak Hour</CardTitle></CardHeader>
+                                <CardContent><p className="text-3xl font-bold">{stats.peakHour}</p></CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader><CardTitle>Most Popular Space</CardTitle></CardHeader>
+                                <CardContent><p className="text-3xl font-bold">{stats.popularSpace}</p></CardContent>
+                            </Card>
                         </div>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead><Button variant="ghost" onClick={() => requestSort('userName')}>User {getSortIndicator('userName')}</Button></TableHead>
-                                    <TableHead><Button variant="ghost" onClick={() => requestSort('spaceName')}>Space {getSortIndicator('spaceName')}</Button></TableHead>
-                                    <TableHead><Button variant="ghost" onClick={() => requestSort('slotDateTime')}>Date &amp; Time {getSortIndicator('slotDateTime')}</Button></TableHead>
-                                    <TableHead><Button variant="ghost" onClick={() => requestSort('status')}>Status {getSortIndicator('status')}</Button></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {sortedAndFilteredBookings.length > 0 ? (
-                                    sortedAndFilteredBookings.map(booking => (
-                                        <TableRow key={booking.id}>
-                                            <TableCell>{booking.userName}</TableCell>
-                                            <TableCell>{booking.spaceName}</TableCell>
-                                            <TableCell>{booking.date} @ {booking.startTime}</TableCell>
-                                            <TableCell>
-                                                <Badge 
-                                                    variant={
-                                                        booking.status === 'Confirmed' ? 'default' :
-                                                        booking.status === 'Cancelled' ? 'destructive' :
-                                                        booking.status === 'No-Show' ? 'destructive' : // Reusing destructive for color
-                                                        'secondary'
-                                                    }
-                                                     className={
-                                                        booking.status === 'No-Show' ? 'bg-orange-100 text-orange-800 hover:bg-orange-100/80' : 
-                                                        booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' : ''
-                                                    }
-                                                >
-                                                    {booking.status}
-                                                </Badge>
-                                            </TableCell>
+                    </section>
+
+                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Peak Booking Hours</CardTitle>
+                            </CardHeader>
+                            <CardContent className="h-80">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={peakHoursData}>
+                                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                        <Tooltip />
+                                        <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Daily Usage Trends</CardTitle>
+                            </CardHeader>
+                            <CardContent className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={dailyUsageData}>
+                                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false}/>
+                                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false}/>
+                                        <Tooltip />
+                                        <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+                    </section>
+                    <section className="mt-8">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>All Bookings</CardTitle>
+                                <div className="flex items-center gap-4 pt-4">
+                                    <Select onValueChange={setFilterStatus} value={filterStatus}>
+                                        <SelectTrigger className="w-[180px]">
+                                            <SelectValue placeholder="Filter by status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Statuses</SelectItem>
+                                            <SelectItem value="Confirmed">Confirmed</SelectItem>
+                                            <SelectItem value="Cancelled">Cancelled</SelectItem>
+                                            <SelectItem value="No-Show">No-Show</SelectItem>
+                                            <SelectItem value="Requires Approval">Requires Approval</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant={"outline"} className="w-[280px] justify-start text-left font-normal">
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {filterDate ? format(filterDate, "PPP") : <span>Filter by date...</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                            <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    {(filterDate || filterStatus !== 'all') && (
+                                        <Button variant="ghost" onClick={() => { setFilterDate(undefined); setFilterStatus('all'); }}>
+                                            Clear Filters
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead><Button variant="ghost" onClick={() => requestSort('userName')}>User {getSortIndicator('userName')}</Button></TableHead>
+                                            <TableHead><Button variant="ghost" onClick={() => requestSort('spaceName')}>Space {getSortIndicator('spaceName')}</Button></TableHead>
+                                            <TableHead><Button variant="ghost" onClick={() => requestSort('slotDateTime')}>Date &amp; Time {getSortIndicator('slotDateTime')}</Button></TableHead>
+                                            <TableHead><Button variant="ghost" onClick={() => requestSort('status')}>Status {getSortIndicator('status')}</Button></TableHead>
                                         </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">No bookings match the current filters.</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </section>
-        </div>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {sortedAndFilteredBookings.length > 0 ? (
+                                            sortedAndFilteredBookings.map(booking => (
+                                                <TableRow key={booking.id}>
+                                                    <TableCell>{booking.userName}</TableCell>
+                                                    <TableCell>{booking.spaceName}</TableCell>
+                                                    <TableCell>{booking.date} @ {booking.startTime}</TableCell>
+                                                    <TableCell>
+                                                        <Badge 
+                                                            variant={
+                                                                booking.status === 'Confirmed' ? 'default' :
+                                                                booking.status === 'Cancelled' ? 'destructive' :
+                                                                booking.status === 'No-Show' ? 'destructive' : // Reusing destructive for color
+                                                                'secondary'
+                                                            }
+                                                            className={
+                                                                booking.status === 'No-Show' ? 'bg-orange-100 text-orange-800 hover:bg-orange-100/80' : 
+                                                                booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' : ''
+                                                            }
+                                                        >
+                                                            {booking.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="h-24 text-center">No bookings match the current filters.</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </section>
+                </div>
+            </div>
+             {/* This hidden element will be used for PDF generation */}
+             <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+                <div id="analytics-report-for-pdf" style={{ width: '210mm', minHeight: '297mm', padding: '20px', background: 'white' }}>
+                     {/* We will populate this via a separate component or duplicated markup */}
+                </div>
+            </div>
+        </>
     );
 }

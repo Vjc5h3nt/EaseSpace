@@ -22,6 +22,11 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
   const router = useRouter();
   const auth = useAuth();
 
+  // Hide layout for the report page
+  if (pathname === '/dashboard/analytics/report') {
+    return <>{children}</>;
+  }
+
   // This layout is now only for admin pages.
   // We can check if the current path is an admin path. 
   if (!pathname.startsWith('/dashboard/admin') && pathname !== '/dashboard/users' && pathname !== '/dashboard/approve-booking' && pathname !== '/dashboard/analytics' && pathname !== '/dashboard/settings') {
