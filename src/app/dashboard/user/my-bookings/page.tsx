@@ -42,7 +42,7 @@ export default function MyBookingsPage() {
             const fetchedBookings: EnrichedBooking[] = [];
 
             for (const bookingDoc of querySnapshot.docs) {
-                const bookingData = { id: bookingDoc.id, ...doc.data() } as Booking;
+                const bookingData = { id: bookingDoc.id, ...bookingDoc.data() } as Booking;
                 let spaceName = "Unknown Space";
 
                 if (bookingData.spaceType && bookingData.spaceId) {
