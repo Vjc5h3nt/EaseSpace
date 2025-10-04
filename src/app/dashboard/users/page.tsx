@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Check, X, Eye, User as UserIcon, UserCheck, UserX, UploadCloud, FileSpreadsheet } from 'lucide-react';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, functions, httpsCallable } from '@/firebase';
 import type { User } from '@/lib/types';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +23,8 @@ import Papa from 'papaparse';
 interface InvitedUser {
     fullName: string;
     email: string;
-    status: 'Ready to Invite' | 'Processing' | 'Invited';
+    status: 'Ready to Invite' | 'Processing' | 'Invited' | 'Error';
+    message?: string;
 }
 
 export default function UsersPage() {
@@ -118,7 +119,7 @@ export default function UsersPage() {
                     fullName: row.fullName || 'N/A',
                     email: row.email || 'N/A',
                     status: 'Ready to Invite'
-                })).filter(u => u.email !== 'N/A');
+                })).filter(u => u.email !== 'N/A' && u.email.includes('@'));
                 setInvitedUsers(parsedUsers);
             },
             error: (error: any) => {
@@ -128,43 +129,53 @@ export default function UsersPage() {
     };
     
     const handleProcessInvitations = async () => {
+        if (isImporting || invitedUsers.length === 0) return;
+
         setIsImporting(true);
         toast({
-            title: "Processing Invitations (Simulation)",
-            description: "This is a simulation. In a real application, a backend function would now process these users.",
+            title: "Processing Invitations...",
+            description: "Your request is being sent to the backend. This may take a moment.",
         });
 
-        console.log("--- SIMULATING BACKEND USER IMPORT ---");
-        console.log("The following logic would run on a secure server (e.g., a Cloud Function).");
-        
-        for (let i = 0; i < invitedUsers.length; i++) {
-            const user = invitedUsers[i];
-            
-            // Simulate processing each user
-            setInvitedUsers(prev => {
-                const newUsers = [...prev];
-                newUsers[i].status = 'Processing';
-                return newUsers;
-            });
-            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+        // Set status to 'Processing' for all users
+        setInvitedUsers(prev => prev.map(u => ({ ...u, status: 'Processing' })));
 
-            console.log(`\nProcessing user: ${user.email}`);
-            console.log(`1. Calling Firebase Admin SDK: admin.auth().createUser({ email: '${user.email}', fullName: '${user.fullName}' })`);
-            console.log(`2. Calling Firebase Admin SDK: admin.auth().generatePasswordResetLink('${user.email}')`);
-            console.log(`3. Sending email to ${user.email} with the password setup link.`);
+        try {
+            const bulkInvite = httpsCallable(functions, 'bulkInviteUsers');
+            const result = await bulkInvite({ users: invitedUsers.map(({fullName, email}) => ({fullName, email})) });
             
-            // Simulate success
+            const resultsData = (result.data as any).results;
+
+            // Update UI based on backend results
             setInvitedUsers(prev => {
-                const newUsers = [...prev];
-                newUsers[i].status = 'Invited';
-                return newUsers;
+                return prev.map(uiUser => {
+                    const backendResult = resultsData.find((res: any) => res.email === uiUser.email);
+                    if (backendResult) {
+                        if (backendResult.status === 'SUCCESS') {
+                            return { ...uiUser, status: 'Invited' };
+                        } else {
+                             return { ...uiUser, status: 'Error', message: backendResult.message };
+                        }
+                    }
+                    return uiUser; // Should not happen
+                });
             });
+
+            toast({ title: "Invitations Processed", description: "Users have been created and notified." });
+            if (orgId) fetchUsers(orgId); // Refresh the main user list
+
+        } catch (error: any) {
+            toast({
+                title: "Cloud Function Error",
+                description: error.message,
+                variant: "destructive"
+            });
+             setInvitedUsers(prev => prev.map(u => ({ ...u, status: 'Error', message: 'The backend function failed.' })));
+        } finally {
+             setIsImporting(false);
         }
-        
-        console.log("\n--- SIMULATION COMPLETE ---");
-        setIsImporting(false);
-        toast({ title: "Simulation Complete", description: "Check the console for backend process details." });
     };
+
 
     const pendingUsers = users.filter(u => u.status === 'pending');
     const admins = users.filter(u => u.role === 'admin');
@@ -232,7 +243,12 @@ export default function UsersPage() {
                                                         <TableRow key={index}>
                                                             <TableCell>{user.fullName}</TableCell>
                                                             <TableCell>{user.email}</TableCell>
-                                                            <TableCell><Badge variant="secondary">{user.status}</Badge></TableCell>
+                                                            <TableCell>
+                                                                <Badge variant={user.status === 'Error' ? 'destructive' : 'secondary'}>
+                                                                    {user.status}
+                                                                </Badge>
+                                                                {user.status === 'Error' && <p className="text-xs text-destructive">{user.message}</p>}
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
