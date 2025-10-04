@@ -237,11 +237,9 @@ export default function UsersPage() {
                 <CardHeader>
                     <CardTitle>Invite Users</CardTitle>
                     <CardDescription>Bulk invite users by uploading a CSV file with 'email' and 'fullName' columns.</CardDescription>
-                     <Alert variant="destructive">
-                        <AlertDescription>
-                           This feature is still in beta development. Firebase blaze subscription is required.
-                        </AlertDescription>
-                    </Alert>
+                    <p className="text-sm italic text-destructive">
+                        This feature is still in beta development. Firebase blaze subscription is required.
+                    </p>
                 </CardHeader>
                 <CardContent>
                     {invitedUsers.length === 0 ? (
@@ -289,9 +287,14 @@ export default function UsersPage() {
                                     </Table>
                                 </CardContent>
                              </Card>
-                            <Button onClick={handleProcessInvitations} disabled={isImporting || invitedUsers.length === 0} className="w-full">
-                                {isImporting ? "Processing..." : `Invite ${invitedUsers.length} Users`}
-                            </Button>
+                            <div className="flex gap-4">
+                                <Button onClick={handleProcessInvitations} disabled={isImporting || invitedUsers.length === 0} className="w-full">
+                                    {isImporting ? "Processing..." : `Invite ${invitedUsers.length} Users`}
+                                </Button>
+                                 <Button variant="outline" onClick={() => { setInvitedUsers([]); setCsvFile(null); if(fileInputRef.current) fileInputRef.current.value = ""; }}>
+                                    Clear
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </CardContent>
@@ -411,3 +414,5 @@ function UserTable({ title, users, loading, showActions = false, onAction, onVie
         </Card>
     );
 }
+
+    
