@@ -65,7 +65,7 @@ export default function AnalyticsPage() {
             ]);
             
             const allSpacesDocs = [...cafeteriasSnap.docs, ...meetingRoomsSnap.docs];
-            const allBookings = bookingsSnap.docs.map(doc => doc.data() as Booking);
+            const allBookings = bookingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
             const allUsers = usersSnap.docs.map(doc => doc.data() as User);
 
             const usersMap = new Map(allUsers.map(u => [u.uid, u.fullName]));
