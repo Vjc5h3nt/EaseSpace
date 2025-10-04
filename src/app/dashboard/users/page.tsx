@@ -24,6 +24,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 interface InvitedUser {
     fullName: string;
     email: string;
+    employeeId?: string;
+    mobileNumber?: string;
     status: 'Ready to Invite' | 'Processing' | 'Invited' | 'Error';
     message?: string;
 }
@@ -120,6 +122,8 @@ export default function UsersPage() {
                 const parsedUsers = results.data.map((row: any) => ({
                     fullName: row.fullName || 'N/A',
                     email: row.email || 'N/A',
+                    employeeId: row.employeeId || '',
+                    mobileNumber: row.mobileNumber || '',
                     status: 'Ready to Invite'
                 })).filter(u => u.email !== 'N/A' && u.email.includes('@'));
                 setInvitedUsers(parsedUsers);
@@ -144,7 +148,8 @@ export default function UsersPage() {
 
         try {
             const bulkInvite = httpsCallable(functions, 'bulkInviteUsers');
-            const result = await bulkInvite({ users: invitedUsers.map(({fullName, email}) => ({fullName, email})) });
+            const usersToInvite = invitedUsers.map(({fullName, email, employeeId, mobileNumber}) => ({fullName, email, employeeId, mobileNumber}));
+            const result = await bulkInvite({ users: usersToInvite });
             
             const resultsData = (result.data as any).results;
 
@@ -236,10 +241,8 @@ export default function UsersPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Invite Users</CardTitle>
-                    <CardDescription>Bulk invite users by uploading a CSV file with 'email' and 'fullName' columns.</CardDescription>
-                    <p className="text-sm italic text-destructive">
-                        This feature is still in beta development. Firebase blaze subscription is required.
-                    </p>
+                    <CardDescription>Bulk invite users by uploading a CSV file with `employeeId`, `fullName`, `email`, and `mobileNumber` columns.</CardDescription>
+                    <p className="text-sm italic text-destructive">This feature is still in beta development. Firebase blaze subscription is required.</p>
                 </CardHeader>
                 <CardContent>
                     {invitedUsers.length === 0 ? (
@@ -265,16 +268,20 @@ export default function UsersPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
+                                                <TableHead>Employee ID</TableHead>
                                                 <TableHead>Name</TableHead>
                                                 <TableHead>Email</TableHead>
+                                                <TableHead>Phone</TableHead>
                                                 <TableHead>Status</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {invitedUsers.map((user, index) => (
                                                 <TableRow key={index}>
+                                                    <TableCell>{user.employeeId}</TableCell>
                                                     <TableCell>{user.fullName}</TableCell>
                                                     <TableCell>{user.email}</TableCell>
+                                                    <TableCell>{user.mobileNumber}</TableCell>
                                                     <TableCell>
                                                         <Badge variant={user.status === 'Error' ? 'destructive' : 'secondary'}>
                                                             {user.status}
@@ -315,10 +322,16 @@ export default function UsersPage() {
                                 <h2 className="text-xl font-semibold">{selectedUser.fullName}</h2>
                                 <p className="text-muted-foreground">{selectedUser.email}</p>
                             </div>
-                            <div className="flex gap-4">
-                                <Badge variant="secondary">Role: {selectedUser.role}</Badge>
-                                <Badge variant={selectedUser.status === 'active' ? 'default' : ['pending', 'rejected', 'disabled'].includes(selectedUser.status) ? 'destructive' : 'secondary'} className={selectedUser.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
-                                    Status: {selectedUser.status}
+                             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-muted-foreground mt-2">
+                                <div className="font-semibold text-right">Employee ID:</div>
+                                <div>{selectedUser.employeeId || 'N/A'}</div>
+                                <div className="font-semibold text-right">Phone:</div>
+                                <div>{selectedUser.mobileNumber || 'N/A'}</div>
+                                <div className="font-semibold text-right">Role:</div>
+                                <div>{selectedUser.role}</div>
+                                 <div className="font-semibold text-right">Status:</div>
+                                <Badge variant={selectedUser.status === 'active' ? 'default' : ['pending', 'rejected', 'disabled'].includes(selectedUser.status) ? 'destructive' : 'secondary'} className={cn('w-fit', selectedUser.status === 'active' ? 'bg-green-100 text-green-800' : '')}>
+                                    {selectedUser.status}
                                 </Badge>
                             </div>
                         </div>
@@ -414,5 +427,7 @@ function UserTable({ title, users, loading, showActions = false, onAction, onVie
         </Card>
     );
 }
+
+    
 
     

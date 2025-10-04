@@ -11,6 +11,8 @@ initializeApp();
 interface InvitedUserData {
   fullName: string;
   email: string;
+  employeeId?: string;
+  mobileNumber?: string;
 }
 
 /**
@@ -61,6 +63,8 @@ export const bulkInviteUsers = functions.https.onCall(async (data, context) => {
         role: "user",
         status: "active", // The user is immediately active
         onboardingComplete: true, // They don't need to go through onboarding
+        employeeId: user.employeeId || "",
+        mobileNumber: user.mobileNumber || "",
       });
 
       // 3. Generate a password setup link
@@ -82,3 +86,5 @@ export const bulkInviteUsers = functions.https.onCall(async (data, context) => {
 
   return { results };
 });
+
+    
