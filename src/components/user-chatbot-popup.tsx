@@ -32,7 +32,7 @@ export function UserChatbotPopup({ user }: UserChatbotPopupProps) {
                 userId: user.uid,
                 orgId: user.org_id,
                 currentDate: currentDate,
-                ...bookingContext // Spread the existing context
+                context: bookingContext // Pass the existing context
              });
 
             // Update the context with the new state from the AI's response

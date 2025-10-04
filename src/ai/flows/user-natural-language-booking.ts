@@ -13,16 +13,19 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { findAvailableMeetingRoomsTool, bookMeetingRoomTool } from '../tools/booking-tools';
 
+const BookingContextSchema = z.object({
+  date: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  capacity: z.number().optional(),
+});
+
 const UserNaturalLanguageBookingInputSchema = z.object({
   query: z.string().describe('The user query in natural language for booking a resource.'),
   userId: z.string().describe('The authenticated user ID.'),
   orgId: z.string().describe('The user\'s organization ID.'),
   currentDate: z.string().describe('The current date in YYYY-MM-DD format.'),
-  // Context fields to maintain conversation state
-  date: z.string().optional().describe('The date for the booking, if already known.'),
-  startTime: z.string().optional().describe('The start time for the booking, if already known.'),
-  endTime: z.string().optional().describe('The end time for the booking, if already known.'),
-  capacity: z.number().optional().describe('The required capacity for the room, if already known.'),
+  context: BookingContextSchema.optional().describe('The current state of booking details collected so far.'),
 });
 export type UserNaturalLanguageBookingInput = z.infer<typeof UserNaturalLanguageBookingInputSchema>;
 
@@ -32,12 +35,7 @@ const UserNaturalLanguageBookingOutputSchema = z.object({
     .describe('The confirmation message for the booking, including booking details. Or a question to the user to clarify information.'),
   isAvailable: z.boolean().describe('Whether the requested resource is available. This should be false if more information is needed.'),
   // The context object is returned to be maintained by the client
-  context: z.object({
-    date: z.string().optional(),
-    startTime: z.string().optional(),
-    endTime: z.string().optional(),
-    capacity: z.number().optional(),
-  }).describe('The current state of booking details collected so far.'),
+  context: BookingContextSchema.describe('The current state of booking details collected so far.'),
 });
 export type UserNaturalLanguageBookingOutput = z.infer<typeof UserNaturalLanguageBookingOutputSchema>;
 
@@ -59,10 +57,10 @@ You already know who the user is (userId: {{{userId}}}) and which organization t
 The current date is {{{currentDate}}}. Use this as a reference if the user mentions 'today' or 'tomorrow'.
 
 **Conversation Context So Far:**
-- Date: {{{date}}}
-- Start Time: {{{startTime}}}
-- End Time: {{{endTime}}}
-- Capacity: {{{capacity}}}
+- Date: {{{context.date}}}
+- Start Time: {{{context.startTime}}}
+- End Time: {{{context.endTime}}}
+- Capacity: {{{context.capacity}}}
 
 Here is the user's latest request:
 "{{{query}}}"
