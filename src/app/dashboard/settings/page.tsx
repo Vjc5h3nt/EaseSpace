@@ -202,7 +202,7 @@ export default function SettingsPage() {
                     </div>
                     
                      <Alert>
-                        <AlertDescription>
+                        <AlertDescription className="text-destructive italic">
                           To edit fields that are locked, please contact your organization's administrator.
                         </AlertDescription>
                     </Alert>
