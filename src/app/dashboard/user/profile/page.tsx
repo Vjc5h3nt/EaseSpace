@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User as UserIcon, Upload, ArrowLeft, Building, CalendarCheck, LogOut } from "lucide-react";
+import { User as UserIcon, Upload, Building, CalendarCheck, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useFirestore, useStorage } from '@/firebase';
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
@@ -39,7 +39,7 @@ export default function UserProfilePage() {
                 if (userDocSnap.exists()) {
                     const userData = userDocSnap.data() as User;
                     setUser(userData);
-                    setProfilePicUrl(currentUser.photoURL || '');
+                    setProfilePicUrl(currentUser.photoURL || userData.photoURL || '');
                 } else {
                     router.push('/login');
                 }
@@ -60,22 +60,28 @@ export default function UserProfilePage() {
     };
 
     const handleUpdateProfilePicture = async () => {
-        if (!auth?.currentUser || !profilePic || !db || !storage) return;
+        if (!auth?.currentUser || !profilePic || !db || !storage) {
+            toast({ title: "Error", description: "Could not save picture. Please try again.", variant: "destructive" });
+            return;
+        }
 
         try {
             const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
             await uploadBytes(storageRef, profilePic);
             const downloadURL = await getDownloadURL(storageRef);
             
+            // Update auth profile
             await updateProfile(auth.currentUser, { photoURL: downloadURL });
             
+            // Update firestore document
             const userDocRef = doc(db, "users", auth.currentUser.uid);
             await updateDoc(userDocRef, { photoURL: downloadURL });
 
             setProfilePicUrl(downloadURL);
+            setProfilePic(null); // Reset file input state
             toast({ title: "Success", description: "Profile picture updated successfully!" });
         } catch (error: any) {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
+            toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
         }
     };
     
@@ -95,7 +101,7 @@ export default function UserProfilePage() {
     }
     
     if (!user) {
-        return <div className="flex justify-center items-center h-screen">No user data found.</div>;
+        return <div className="flex justify-center items-center h-screen">No user data found. Redirecting to login...</div>;
     }
 
 
@@ -175,3 +181,5 @@ export default function UserProfilePage() {
         </div>
     );
 }
+
+    
