@@ -175,11 +175,17 @@ export default function UserProfilePage() {
                             <Label htmlFor="email">Email Address</Label>
                             <Input id="email" type="email" value={user.email} readOnly disabled />
                         </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="employeeId">Employee ID</Label>
+                            <Input id="employeeId" value={user.employeeId || 'Not set'} readOnly disabled />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="mobileNumber">Mobile Number</Label>
+                            <Input id="mobileNumber" value={user.mobileNumber || 'Not set'} readOnly disabled />
+                        </div>
                     </CardContent>
                 </Card>
             </main>
         </div>
     );
 }
-
-    
