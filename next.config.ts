@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -15,6 +16,14 @@ const nextConfig: NextConfig = {
         hostname: 'placehold.co',
         port: '',
         pathname: '/**',
+      },
+       {
+        protocol: "https",
+        hostname: process.env.CLOUDFLARE_R2_PUBLIC_URL
+          ? new URL(process.env.CLOUDFLARE_R2_PUBLIC_URL).hostname
+          : "",
+        port: "",
+        pathname: "/**",
       },
     ],
   },

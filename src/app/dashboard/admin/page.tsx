@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, PlusCircle } from "lucide-react";
+import { Pencil, PlusCircle, Upload } from "lucide-react";
 import type { Booking, Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { useAuth, useFirestore } from "@/firebase";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc } from "firebase/firestore";
@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { differenceInMinutes, format, isPast } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Image from "next/image";
 
 type EnrichedBooking = Booking & { userName: string, spaceName: string };
 
@@ -44,6 +45,13 @@ export default function AdminDashboardPage() {
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomCapacity, setNewRoomCapacity] = useState("");
   const [newRoomAmenities, setNewRoomAmenities] = useState("");
+
+  // Edit room dialog state
+  const [isEditRoomDialogOpen, setIsEditRoomDialogOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<MeetingRoom | null>(null);
+  const [editingRoomImageFile, setEditingRoomImageFile] = useState<File | null>(null);
+  const [editingRoomImageUrl, setEditingRoomImageUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
 
    useEffect(() => {
@@ -198,6 +206,72 @@ export default function AdminDashboardPage() {
         toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   }
+
+    const handleEditMeetingRoom = (room: MeetingRoom) => {
+        setEditingRoom(room);
+        setEditingRoomImageUrl(room.imageUrl || "");
+        setIsEditRoomDialogOpen(true);
+    };
+
+    const handleRoomImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setEditingRoomImageFile(file);
+            setEditingRoomImageUrl(URL.createObjectURL(file));
+        }
+    };
+    
+    const handleUpdateMeetingRoom = async () => {
+        if (!editingRoom || !db) return;
+    
+        try {
+            let finalImageUrl = editingRoom.imageUrl;
+    
+            // 1. If a new image is selected, upload it
+            if (editingRoomImageFile) {
+                const presignedUrlResponse = await fetch('/api/upload-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileType: editingRoomImageFile.type, folder: 'meetingRooms' }),
+                });
+    
+                if (!presignedUrlResponse.ok) {
+                    throw new Error('Failed to get an upload URL.');
+                }
+                const { uploadUrl, publicUrl } = await presignedUrlResponse.json();
+    
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    body: editingRoomImageFile,
+                    headers: { 'Content-Type': editingRoomImageFile.type },
+                });
+    
+                if (!uploadResponse.ok) {
+                    throw new Error('Failed to upload image.');
+                }
+                finalImageUrl = publicUrl;
+            }
+    
+            // 2. Update Firestore document
+            const roomRef = doc(db, "meetingRooms", editingRoom.id);
+            await updateDoc(roomRef, {
+                ...editingRoom,
+                imageUrl: finalImageUrl,
+            });
+    
+            toast({ title: "Success", description: `${editingRoom.name} updated successfully!` });
+            
+            // 3. Reset state and close dialog
+            setIsEditRoomDialogOpen(false);
+            setEditingRoom(null);
+            setEditingRoomImageFile(null);
+            setEditingRoomImageUrl("");
+            if (orgId) fetchDashboardData(orgId);
+    
+        } catch (error: any) {
+            toast({ title: "Error Updating Room", description: error.message, variant: "destructive" });
+        }
+    };
   
   if (loading) {
     return <div className="flex justify-center items-center h-full">Loading dashboard...</div>
@@ -341,7 +415,7 @@ export default function AdminDashboardPage() {
                                 <p className="font-semibold">{room.name}</p>
                                 <p className="text-sm text-neutral-600">Capacity: {room.capacity}</p>
                                 </div>
-                                <Button variant="outline" size="sm" disabled><Pencil className="mr-2 h-3 w-3" /> Edit</Button>
+                                <Button variant="outline" size="sm" onClick={() => handleEditMeetingRoom(room)}><Pencil className="mr-2 h-3 w-3" /> Edit</Button>
                             </div>
                             )) : <p className="text-sm text-neutral-600 text-center py-4">No meeting rooms found.</p>}
                         </div>
@@ -349,6 +423,58 @@ export default function AdminDashboardPage() {
                 </CardContent>
             </Card>
         </section>
+
+        {/* Edit Meeting Room Dialog */}
+        <Dialog open={isEditRoomDialogOpen} onOpenChange={setIsEditRoomDialogOpen}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Meeting Room</DialogTitle>
+                </DialogHeader>
+                {editingRoom && (
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-room-name" className="text-right">Name</Label>
+                            <Input id="edit-room-name" value={editingRoom.name} onChange={(e) => setEditingRoom({...editingRoom, name: e.target.value})} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-room-capacity" className="text-right">Capacity</Label>
+                            <Input id="edit-room-capacity" type="number" value={editingRoom.capacity} onChange={(e) => setEditingRoom({...editingRoom, capacity: parseInt(e.target.value) || 0})} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-room-amenities" className="text-right">Amenities</Label>
+                            <Input id="edit-room-amenities" value={editingRoom.amenities.join(', ')} onChange={(e) => setEditingRoom({...editingRoom, amenities: e.target.value.split(',').map(a => a.trim())})} placeholder="Comma-separated" className="col-span-3" />
+                        </div>
+                         <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Image</Label>
+                            <div className="col-span-3 space-y-2">
+                                <Image
+                                    src={editingRoomImageUrl || "https://placehold.co/600x400.png"}
+                                    alt={editingRoom.name}
+                                    width={200}
+                                    height={150}
+                                    className="rounded-md object-cover"
+                                />
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    ref={fileInputRef}
+                                    onChange={handleRoomImageChange}
+                                    hidden
+                                />
+                                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                                   <Upload className="mr-2 h-4 w-4" /> Change Picture
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                    <Button onClick={handleUpdateMeetingRoom}>Save Changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
 
         <section>
             <div className="flex items-center justify-between mb-4">
