@@ -105,8 +105,9 @@ export default function UsersPage() {
     
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files.length > 0) {
-            setCsvFile(event.target.files[0]);
-            parseCsv(event.target.files[0]);
+            const file = event.target.files[0];
+            setCsvFile(file);
+            parseCsv(file);
         }
     };
 
@@ -198,80 +199,6 @@ export default function UsersPage() {
             </header>
             
             <Card>
-                <CardHeader>
-                    <CardTitle>Invite Users</CardTitle>
-                    <CardDescription>Bulk invite users by uploading a CSV file with 'email' and 'fullName' columns.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                         <div>
-                            <div 
-                                className="flex justify-center w-full rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 cursor-pointer hover:border-primary"
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <div className="text-center">
-                                    <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
-                                    <p className="mt-2 text-sm text-gray-600">
-                                       {csvFile ? `Selected: ${csvFile.name}` : 'Click to select a .csv file'}
-                                    </p>
-                                    <p className="text-xs text-gray-500">Max file size: 2MB</p>
-                                </div>
-                            </div>
-                            <Input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                accept=".csv"
-                                className="hidden"
-                            />
-                        </div>
-                        <div className='space-y-4'>
-                            {invitedUsers.length > 0 && (
-                                <div className="space-y-4">
-                                     <Card className="max-h-60 overflow-y-auto">
-                                        <CardContent className="p-0">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Name</TableHead>
-                                                        <TableHead>Email</TableHead>
-                                                        <TableHead>Status</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {invitedUsers.map((user, index) => (
-                                                        <TableRow key={index}>
-                                                            <TableCell>{user.fullName}</TableCell>
-                                                            <TableCell>{user.email}</TableCell>
-                                                            <TableCell>
-                                                                <Badge variant={user.status === 'Error' ? 'destructive' : 'secondary'}>
-                                                                    {user.status}
-                                                                </Badge>
-                                                                {user.status === 'Error' && <p className="text-xs text-destructive">{user.message}</p>}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </CardContent>
-                                     </Card>
-                                    <Button onClick={handleProcessInvitations} disabled={isImporting || invitedUsers.length === 0} className="w-full">
-                                        {isImporting ? "Processing..." : `Invite ${invitedUsers.length} Users`}
-                                    </Button>
-                                </div>
-                            )}
-                            {invitedUsers.length === 0 && (
-                                 <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 border rounded-lg h-full">
-                                    <FileSpreadsheet className="w-10 h-10 mb-2"/>
-                                    <p>CSV data will be previewed here.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
                  <CardContent className="p-6">
                     <Tabs defaultValue="pending">
                         <TabsList className="grid w-full grid-cols-3">
@@ -302,6 +229,65 @@ export default function UsersPage() {
                              <UserTable title="Administrators" users={admins} onView={handleViewUser} loading={loading} />
                         </TabsContent>
                     </Tabs>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Invite Users</CardTitle>
+                    <CardDescription>Bulk invite users by uploading a CSV file with 'email' and 'fullName' columns.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {invitedUsers.length === 0 ? (
+                        <div className='text-center space-y-4'>
+                            <Button onClick={() => fileInputRef.current?.click()}>
+                                <UploadCloud className='mr-2 h-4 w-4' />
+                                Upload CSV
+                            </Button>
+                            <Input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                accept=".csv"
+                                className="hidden"
+                            />
+                            <p className='text-xs text-muted-foreground'>No file selected.</p>
+                        </div>
+
+                    ) : (
+                        <div className="space-y-4">
+                             <Card className="max-h-80 overflow-y-auto">
+                                <CardContent className="p-0">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Name</TableHead>
+                                                <TableHead>Email</TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {invitedUsers.map((user, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell>{user.fullName}</TableCell>
+                                                    <TableCell>{user.email}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={user.status === 'Error' ? 'destructive' : 'secondary'}>
+                                                            {user.status}
+                                                        </Badge>
+                                                        {user.status === 'Error' && <p className="text-xs text-destructive">{user.message}</p>}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                             </Card>
+                            <Button onClick={handleProcessInvitations} disabled={isImporting || invitedUsers.length === 0} className="w-full">
+                                {isImporting ? "Processing..." : `Invite ${invitedUsers.length} Users`}
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -419,3 +405,5 @@ function UserTable({ title, users, loading, showActions = false, onAction, onVie
         </Card>
     );
 }
+
+    
