@@ -20,12 +20,7 @@ type BookingContext = UserNaturalLanguageBookingOutput['context'];
 export function UserChatbotPopup({ user }: UserChatbotPopupProps) {
     const [isOpen, setIsOpen] = useState(false);
     // State to hold the conversation context
-    const [bookingContext, setBookingContext] = useState<BookingContext>({
-        date: null,
-        startTime: null,
-        endTime: null,
-        capacity: null,
-    });
+    const [bookingContext, setBookingContext] = useState<BookingContext>({});
 
     const handleSendMessage = async (message: string): Promise<string> => {
         try {
@@ -56,12 +51,7 @@ export function UserChatbotPopup({ user }: UserChatbotPopupProps) {
         setIsOpen(open);
         if (!open) {
             // Reset context when the dialog is closed
-            setBookingContext({
-                date: null,
-                startTime: null,
-                endTime: null,
-                capacity: null,
-            });
+            setBookingContext({});
         }
     }
 
