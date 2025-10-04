@@ -98,7 +98,7 @@ export default function OnboardingPage() {
           name: newRoomName,
           capacity: parseInt(newRoomCapacity),
           amenities: newRoomAmenities.split(",").map((a) => a.trim()),
-          imageUrl: '',
+          imageUrls: [],
         },
       ]);
       setNewRoomName("");

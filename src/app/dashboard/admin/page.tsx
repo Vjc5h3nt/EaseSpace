@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, PlusCircle, Upload } from "lucide-react";
+import { Pencil, PlusCircle, Upload, X } from "lucide-react";
 import type { Booking, Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { useAuth, useFirestore } from "@/firebase";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc } from "firebase/firestore";
@@ -49,8 +49,7 @@ export default function AdminDashboardPage() {
   // Edit room dialog state
   const [isEditRoomDialogOpen, setIsEditRoomDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<MeetingRoom | null>(null);
-  const [editingRoomImageFile, setEditingRoomImageFile] = useState<File | null>(null);
-  const [editingRoomImageUrl, setEditingRoomImageUrl] = useState<string>("");
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -194,7 +193,8 @@ export default function AdminDashboardPage() {
             name: newRoomName,
             capacity: parseInt(newRoomCapacity, 10),
             amenities: newRoomAmenities.split(',').map(a => a.trim()).filter(Boolean),
-            org_id: orgId
+            org_id: orgId,
+            imageUrls: []
         });
         toast({ title: "Meeting Room Added!", description: `${newRoomName} has been created.` });
         setIsAddRoomDialogOpen(false);
@@ -209,15 +209,19 @@ export default function AdminDashboardPage() {
 
     const handleEditMeetingRoom = (room: MeetingRoom) => {
         setEditingRoom(room);
-        setEditingRoomImageUrl(room.imageUrl || "");
         setIsEditRoomDialogOpen(true);
     };
 
-    const handleRoomImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setEditingRoomImageFile(file);
-            setEditingRoomImageUrl(URL.createObjectURL(file));
+    const handleNewImageFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setNewImageFiles(Array.from(e.target.files));
+        }
+    };
+
+    const handleRemoveExistingImage = (urlToRemove: string) => {
+        if (editingRoom) {
+            const updatedUrls = editingRoom.imageUrls?.filter(url => url !== urlToRemove);
+            setEditingRoom({ ...editingRoom, imageUrls: updatedUrls });
         }
     };
     
@@ -225,47 +229,47 @@ export default function AdminDashboardPage() {
         if (!editingRoom || !db) return;
     
         try {
-            let finalImageUrl = editingRoom.imageUrl;
+            let finalImageUrls = [...(editingRoom.imageUrls || [])];
     
-            // 1. If a new image is selected, upload it
-            if (editingRoomImageFile) {
-                const presignedUrlResponse = await fetch('/api/upload-url', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileType: editingRoomImageFile.type, folder: 'meetingRooms' }),
+            // Upload new images if any are selected
+            if (newImageFiles.length > 0) {
+                const uploadPromises = newImageFiles.map(async (file) => {
+                    const presignedUrlResponse = await fetch('/api/upload-url', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileType: file.type, folder: 'meetingRooms' }),
+                    });
+                    if (!presignedUrlResponse.ok) throw new Error('Failed to get an upload URL.');
+                    const { uploadUrl, publicUrl } = await presignedUrlResponse.json();
+    
+                    const uploadResponse = await fetch(uploadUrl, {
+                        method: 'PUT',
+                        body: file,
+                        headers: { 'Content-Type': file.type },
+                    });
+                    if (!uploadResponse.ok) throw new Error('Failed to upload image.');
+                    return publicUrl;
                 });
     
-                if (!presignedUrlResponse.ok) {
-                    throw new Error('Failed to get an upload URL.');
-                }
-                const { uploadUrl, publicUrl } = await presignedUrlResponse.json();
-    
-                const uploadResponse = await fetch(uploadUrl, {
-                    method: 'PUT',
-                    body: editingRoomImageFile,
-                    headers: { 'Content-Type': editingRoomImageFile.type },
-                });
-    
-                if (!uploadResponse.ok) {
-                    throw new Error('Failed to upload image.');
-                }
-                finalImageUrl = publicUrl;
+                const uploadedUrls = await Promise.all(uploadPromises);
+                finalImageUrls.push(...uploadedUrls);
             }
     
-            // 2. Update Firestore document
+            // Update Firestore document
             const roomRef = doc(db, "meetingRooms", editingRoom.id);
             await updateDoc(roomRef, {
-                ...editingRoom,
-                imageUrl: finalImageUrl,
+                name: editingRoom.name,
+                capacity: editingRoom.capacity,
+                amenities: editingRoom.amenities,
+                imageUrls: finalImageUrls,
             });
     
             toast({ title: "Success", description: `${editingRoom.name} updated successfully!` });
             
-            // 3. Reset state and close dialog
+            // Reset state and close dialog
             setIsEditRoomDialogOpen(false);
             setEditingRoom(null);
-            setEditingRoomImageFile(null);
-            setEditingRoomImageUrl("");
+            setNewImageFiles([]);
             if (orgId) fetchDashboardData(orgId);
     
         } catch (error: any) {
@@ -426,7 +430,7 @@ export default function AdminDashboardPage() {
 
         {/* Edit Meeting Room Dialog */}
         <Dialog open={isEditRoomDialogOpen} onOpenChange={setIsEditRoomDialogOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Edit Meeting Room</DialogTitle>
                 </DialogHeader>
@@ -444,26 +448,46 @@ export default function AdminDashboardPage() {
                             <Label htmlFor="edit-room-amenities" className="text-right">Amenities</Label>
                             <Input id="edit-room-amenities" value={editingRoom.amenities.join(', ')} onChange={(e) => setEditingRoom({...editingRoom, amenities: e.target.value.split(',').map(a => a.trim())})} placeholder="Comma-separated" className="col-span-3" />
                         </div>
-                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Image</Label>
-                            <div className="col-span-3 space-y-2">
-                                <Image
-                                    src={editingRoomImageUrl || "https://placehold.co/600x400.png"}
-                                    alt={editingRoom.name}
-                                    width={200}
-                                    height={150}
-                                    className="rounded-md object-cover"
-                                />
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    ref={fileInputRef}
-                                    onChange={handleRoomImageChange}
-                                    hidden
-                                />
-                                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                                   <Upload className="mr-2 h-4 w-4" /> Change Picture
-                                </Button>
+                         <div className="grid grid-cols-4 items-start gap-4">
+                            <Label className="text-right pt-2">Images</Label>
+                            <div className="col-span-3 space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    {(editingRoom.imageUrls || []).map((url, index) => (
+                                        <div key={index} className="relative">
+                                            <Image
+                                                src={url}
+                                                alt={`Room image ${index + 1}`}
+                                                width={200}
+                                                height={150}
+                                                className="rounded-md object-cover w-full h-32"
+                                            />
+                                            <Button
+                                                variant="destructive"
+                                                size="icon"
+                                                className="absolute top-1 right-1 h-6 w-6"
+                                                onClick={() => handleRemoveExistingImage(url)}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div>
+                                    <Label htmlFor="room-images">Add Images</Label>
+                                    <Input
+                                        id="room-images"
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        ref={fileInputRef}
+                                        onChange={handleNewImageFilesChange}
+                                        disabled={(editingRoom.imageUrls?.length || 0) + newImageFiles.length >= 4}
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        You can upload up to 4 images.
+                                        ({(editingRoom.imageUrls?.length || 0) + newImageFiles.length} / 4)
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>

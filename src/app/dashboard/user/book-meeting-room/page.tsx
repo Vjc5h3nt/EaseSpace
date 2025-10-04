@@ -22,6 +22,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import BookingCalendar from '@/components/booking-calendar';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import Image from 'next/image';
 
 type EnrichedBooking = Booking & { userName?: string };
 
@@ -393,12 +395,44 @@ function MeetingRoomBookingComponent() {
                             <AlertDialogTitle>{selectedRoom.name}</AlertDialogTitle>
                              <AlertDialogDescription>Capacity: {selectedRoom.capacity} people</AlertDialogDescription>
                         </AlertDialogHeader>
-                         <img
-                            src={selectedRoom.imageUrl || "https://placehold.co/600x400.png"}
-                            alt={selectedRoom.name}
-                            className="w-full h-auto rounded-lg object-cover"
-                            data-ai-hint="meeting room"
-                         />
+                        <div className="my-4">
+                            <Carousel className="w-full max-w-xs mx-auto">
+                                <CarouselContent>
+                                    {selectedRoom.imageUrls && selectedRoom.imageUrls.length > 0 ? (
+                                        selectedRoom.imageUrls.map((url, index) => (
+                                            <CarouselItem key={index}>
+                                                <div className="p-1">
+                                                    <Card>
+                                                        <CardContent className="flex aspect-square items-center justify-center p-0">
+                                                            <Image
+                                                                src={url}
+                                                                alt={`${selectedRoom.name} image ${index + 1}`}
+                                                                width={600}
+                                                                height={400}
+                                                                className="rounded-lg object-cover w-full h-full"
+                                                                data-ai-hint="meeting room"
+                                                            />
+                                                        </CardContent>
+                                                    </Card>
+                                                </div>
+                                            </CarouselItem>
+                                        ))
+                                    ) : (
+                                        <CarouselItem>
+                                             <div className="p-1">
+                                                <Card>
+                                                    <CardContent className="flex aspect-square items-center justify-center p-6 bg-muted rounded-lg">
+                                                        <span className="text-muted-foreground">No Image</span>
+                                                    </CardContent>
+                                                </Card>
+                                            </div>
+                                        </CarouselItem>
+                                    )}
+                                </CarouselContent>
+                                <CarouselPrevious />
+                                <CarouselNext />
+                            </Carousel>
+                        </div>
                          <div className="mt-4">
                              <h3 className="font-semibold mb-2">Amenities</h3>
                              <ul className="list-disc list-inside text-muted-foreground">
@@ -444,5 +478,3 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
-
-    

@@ -42,7 +42,7 @@ export interface MeetingRoom {
     amenities: string[];
     floor?: number;
     location?: string; // e.g. "Tower B"
-    imageUrl?: string;
+    imageUrls?: string[];
 }
 
 export interface Booking {
