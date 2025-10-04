@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon, Upload, ArrowLeft, Building, CalendarCheck, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db, storage } from '@/lib/firebase';
+import { useAuth, useFirestore, useStorage } from '@/firebase';
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -20,6 +21,9 @@ import { Logo } from '@/components/logo';
 export default function UserProfilePage() {
     const router = useRouter();
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
+    const storage = useStorage();
     const [user, setUser] = useState<User | null>(null);
     const [profilePic, setProfilePic] = useState<File | null>(null);
     const [profilePicUrl, setProfilePicUrl] = useState('');
@@ -27,8 +31,9 @@ export default function UserProfilePage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
+            if (currentUser && db) {
                 const userDocRef = doc(db, "users", currentUser.uid);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
@@ -44,7 +49,7 @@ export default function UserProfilePage() {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, [router]);
+    }, [router, auth, db]);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -55,7 +60,7 @@ export default function UserProfilePage() {
     };
 
     const handleUpdateProfilePicture = async () => {
-        if (!auth.currentUser || !profilePic) return;
+        if (!auth?.currentUser || !profilePic || !db || !storage) return;
 
         try {
             const storageRef = ref(storage, `profilePictures/${auth.currentUser.uid}`);
@@ -75,6 +80,7 @@ export default function UserProfilePage() {
     };
     
       const handleLogout = async () => {
+        if (!auth) return;
         try {
           await auth.signOut();
           router.push("/login");

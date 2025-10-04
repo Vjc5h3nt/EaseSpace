@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp, Timestamp, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import type { MeetingRoom, Booking, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +28,8 @@ type EnrichedBooking = Booking & { userName?: string };
 function MeetingRoomBookingComponent() {
     const router = useRouter();
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
 
     const [rooms, setRooms] = useState<MeetingRoom[]>([]);
     const [selectedRoom, setSelectedRoom] = useState<MeetingRoom | null>(null);
@@ -52,8 +54,9 @@ function MeetingRoomBookingComponent() {
 
 
     useEffect(() => {
+        if (!auth) return;
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
+            if (currentUser && db) {
                 const userDocRef = doc(db, 'users', currentUser.uid);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
@@ -68,9 +71,10 @@ function MeetingRoomBookingComponent() {
             }
         });
         return () => unsubscribeAuth();
-    }, [router]);
+    }, [router, auth, db]);
 
     const fetchRooms = async (orgId: string) => {
+        if (!db) return;
         setLoading(true);
         const roomsQuery = query(collection(db, "meetingRooms"), where("org_id", "==", orgId));
         const roomsSnapshot = await getDocs(roomsQuery);
@@ -83,13 +87,13 @@ function MeetingRoomBookingComponent() {
     };
 
     useEffect(() => {
-        if (!selectedRoom) return;
+        if (!selectedRoom || !db) return;
 
         const bookingsQuery = query(collection(db, "bookings"), where("spaceId", "==", selectedRoom.id));
         const unsubscribeBookings = onSnapshot(bookingsQuery, async (snapshot) => {
             const userIds = [...new Set(snapshot.docs.map(d => d.data().userId))];
             const usersMap = new Map<string, string>();
-            if (userIds.length > 0) {
+            if (userIds.length > 0 && db) {
                  const usersQuery = query(collection(db, 'users'), where('uid', 'in', userIds));
                  const usersSnap = await getDocs(usersQuery);
                  usersSnap.forEach(doc => {
@@ -111,7 +115,7 @@ function MeetingRoomBookingComponent() {
         });
 
         return () => unsubscribeBookings();
-    }, [selectedRoom]);
+    }, [selectedRoom, db]);
 
     const calendarEvents = useMemo((): EventInput[] => {
         const getColor = (status: Booking['status']) => {
@@ -175,7 +179,7 @@ function MeetingRoomBookingComponent() {
     };
 
     const handleSubmitBooking = async () => {
-        if (!user || !selectedRoom || !bookingDate || !startTime || !endTime || !purpose) {
+        if (!user || !selectedRoom || !bookingDate || !startTime || !endTime || !purpose || !db) {
             toast({ title: "Missing Information", description: "Please fill all required fields.", variant: "destructive" });
             return;
         }
@@ -440,7 +444,3 @@ export default function MeetingRoomBookingPage() {
         </Suspense>
     )
 }
-
-    
-
-    

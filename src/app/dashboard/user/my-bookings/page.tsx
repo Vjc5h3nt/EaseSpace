@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import type { Booking, Cafeteria, MeetingRoom } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,13 +25,16 @@ type SortConfig = { key: keyof EnrichedBooking | 'slotDateTime' | 'createdAt'; d
 export default function MyBookingsPage() {
     const router = useRouter();
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
     const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState(auth.currentUser);
+    const [user, setUser] = useState(auth?.currentUser);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'slotDateTime', direction: 'descending' });
     const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
     const fetchBookings = async (uid: string) => {
+        if (!db) return;
         setLoading(true);
         try {
             const bookingsQuery = query(collection(db, 'bookings'), where('userId', '==', uid));
@@ -63,6 +66,7 @@ export default function MyBookingsPage() {
     };
     
     useEffect(() => {
+        if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
@@ -72,9 +76,10 @@ export default function MyBookingsPage() {
             }
         });
         return () => unsubscribe();
-    }, [router]);
+    }, [router, auth]);
 
     const handleCancelBooking = async (bookingId: string) => {
+        if (!db) return;
         try {
             const bookingRef = doc(db, 'bookings', bookingId);
             await updateDoc(bookingRef, { status: 'Cancelled' });
@@ -87,6 +92,7 @@ export default function MyBookingsPage() {
     };
     
     const handleLogout = async () => {
+        if (!auth) return;
         try {
           await auth.signOut();
           router.push("/login");

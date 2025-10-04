@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { auth, db } from "@/lib/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { doc, setDoc, addDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,8 @@ export default function SignupPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const auth = useAuth();
+  const db = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,6 +45,12 @@ export default function SignupPage() {
 
   const handleSignup = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
+    if (!auth || !db) {
+      toast({ title: "Error", description: "Firebase not initialized.", variant: "destructive" });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // 1. Check if organization name already exists
       const orgQuery = query(collection(db, "organizations"), where("name", "==", values.organizationName));

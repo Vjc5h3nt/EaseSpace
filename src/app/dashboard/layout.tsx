@@ -15,11 +15,12 @@ import {
 import { Logo } from "@/components/logo";
 import { ChatbotPopup } from "@/components/chatbot-popup";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/lib/firebase";
+import { useAuth } from "@/firebase";
 
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const auth = useAuth();
 
   // This layout is now only for admin pages.
   // We can check if the current path is an admin path. 
@@ -36,6 +37,7 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
   ];
 
   const handleLogout = async () => {
+    if (!auth) return;
     try {
       await auth.signOut();
       router.push("/login");
@@ -91,5 +93,3 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
     </div>
   );
 }
-
-    

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -9,6 +10,16 @@ import { getBookingInsights } from "@/ai/flows/admin-booking-insights";
 
 export function ChatbotPopup() {
     const [isOpen, setIsOpen] = useState(false);
+
+    const handleSendMessage = async (message: string): Promise<string> => {
+        try {
+            const result = await getBookingInsights({ question: message });
+            return result.answer;
+        } catch (e) {
+            console.error(e);
+            return "Sorry, I'm having trouble connecting to my brain right now.";
+        }
+    }
 
     return (
         <>
@@ -28,10 +39,7 @@ export function ChatbotPopup() {
                     </DialogHeader>
                     <div className="h-[70vh]">
                      <ChatInterface
-                        onSendMessage={async (message) => {
-                            const result = await getBookingInsights({ question: message });
-                            return result.answer;
-                        }}
+                        onSendMessage={handleSendMessage}
                         placeholder="e.g., How many users booked Cafeteria 2?"
                         emptyStateText="Ask for insights on your booking data."
                     />

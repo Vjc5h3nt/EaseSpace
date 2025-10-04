@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Pencil, PlusCircle } from "lucide-react";
 import type { Booking, Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
-import { auth, db } from "@/lib/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ type EnrichedBooking = Booking & { userName: string, spaceName: string };
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
+  const auth = useAuth();
+  const db = useFirestore();
   const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
   const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
@@ -45,8 +47,9 @@ export default function AdminDashboardPage() {
 
 
    useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
+      if (user && db) {
         const userDocRef = doc(db, "users", user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
@@ -59,10 +62,10 @@ export default function AdminDashboardPage() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [auth, db]);
 
   const fetchDashboardData = async (orgId: string) => {
-      if (!orgId) return;
+      if (!orgId || !db) return;
       setLoading(true);
 
       try {
@@ -127,7 +130,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleSaveLayout = async () => {
-    if (!selectedCafeteria) return;
+    if (!selectedCafeteria || !db) return;
 
     try {
         const cafeteriaRef = doc(db, "cafeterias", selectedCafeteria.id);
@@ -151,7 +154,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleAddCafeteria = async () => {
-    if (!newCafeName.trim() || !orgId) return;
+    if (!newCafeName.trim() || !orgId || !db) return;
     try {
         await addDoc(collection(db, "cafeterias"), {
             name: newCafeName,
@@ -169,7 +172,7 @@ export default function AdminDashboardPage() {
   }
 
   const handleAddMeetingRoom = async () => {
-    if (!newRoomName.trim() || !newRoomCapacity || !orgId) return;
+    if (!newRoomName.trim() || !newRoomCapacity || !orgId || !db) return;
     try {
         await addDoc(collection(db, "meetingRooms"), {
             name: newRoomName,
@@ -390,9 +393,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
-
-    
-
-    

@@ -8,56 +8,58 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Check, X } from 'lucide-react';
-// import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
-// import { db, auth } from '@/lib/firebase';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { useAuth, useFirestore } from '@/firebase';
 import type { User } from '@/lib/types';
-// import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function UsersPage() {
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
     const [users, setUsers] = useState<User[]>([]);
     const [orgId, setOrgId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     const fetchUsers = async (orgId: string) => {
-        if (!orgId) return;
+        if (!orgId || !db) return;
         setLoading(true);
-        // const usersQuery = query(collection(db, 'users'), where('org_id', '==', orgId));
-        // const querySnapshot = await getDocs(usersQuery);
-        // const fetchedUsers = querySnapshot.docs.map(doc => ({...doc.data(), uid: doc.id} as User));
-        setUsers([]);
+        const usersQuery = query(collection(db, 'users'), where('org_id', '==', orgId));
+        const querySnapshot = await getDocs(usersQuery);
+        const fetchedUsers = querySnapshot.docs.map(doc => ({...doc.data(), uid: doc.id} as User));
+        setUsers(fetchedUsers);
         setLoading(false);
     };
 
     useEffect(() => {
-        // const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        //     if (user) {
-        //         const adminUserDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
-        //         if (!adminUserDoc.empty) {
-        //             const adminOrgId = adminUserDoc.docs[0].data().org_id;
-        //             setOrgId(adminOrgId);
-        //             fetchUsers(adminOrgId);
-        //         }
-        //     } else {
-        //         setLoading(false);
-        //     }
-        // });
-        // return () => unsubscribe();
-        setLoading(false);
-    }, []);
+        if (!auth) return;
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user && db) {
+                const adminUserDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
+                if (!adminUserDoc.empty) {
+                    const adminOrgId = adminUserDoc.docs[0].data().org_id;
+                    setOrgId(adminOrgId);
+                    fetchUsers(adminOrgId);
+                }
+            } else {
+                setLoading(false);
+            }
+        });
+        return () => unsubscribe();
+    }, [auth, db]);
 
     const handleUserApproval = async (userId: string, newStatus: 'active' | 'rejected') => {
-        toast({ title: 'Functionality Temporarily Disabled', description: 'User management is being restored.'});
-        // try {
-        //     const userRef = doc(db, 'users', userId);
-        //     await updateDoc(userRef, { status: newStatus });
-        //     toast({ title: 'Success', description: `User status has been updated.` });
-        //     if (orgId) fetchUsers(orgId); // Refresh users list
-        // } catch (error) {
-        //     console.error('Error updating user status:', error);
-        //     toast({ title: 'Error', description: 'Failed to update user status.', variant: 'destructive' });
-        // }
+        if (!db) return;
+        try {
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, { status: newStatus });
+            toast({ title: 'Success', description: `User status has been updated.` });
+            if (orgId) fetchUsers(orgId); // Refresh users list
+        } catch (error) {
+            console.error('Error updating user status:', error);
+            toast({ title: 'Error', description: 'Failed to update user status.', variant: 'destructive' });
+        }
     };
 
     const activeUsers = users.filter(u => u.status === 'active' && u.role === 'user');

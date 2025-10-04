@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { doc, getDoc, addDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -28,6 +28,8 @@ function CafeteriaBookingComponent() {
     const searchParams = useSearchParams();
     const cafeteriaId = searchParams.get('id');
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
 
     const [cafeteria, setCafeteria] = useState<Cafeteria | null>(null);
     const [loading, setLoading] = useState(true);
@@ -45,8 +47,9 @@ function CafeteriaBookingComponent() {
     const [user, setUser] = useState<{uid: string, org_id: string} | null>(null);
 
     useEffect(() => {
+      if (!auth) return;
       const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-        if(currentUser){
+        if(currentUser && db){
             const userDocRef = doc(db, 'users', currentUser.uid);
             const userDoc = await getDoc(userDocRef);
             if(userDoc.exists()) {
@@ -57,7 +60,7 @@ function CafeteriaBookingComponent() {
         }
       });
       return () => unsubscribe();
-    }, [router])
+    }, [router, auth, db])
 
     useEffect(() => {
         if (!cafeteriaId) {
@@ -66,6 +69,7 @@ function CafeteriaBookingComponent() {
         }
 
         const fetchCafeteria = async () => {
+            if (!db) return;
             setLoading(true);
             const docRef = doc(db, "cafeterias", cafeteriaId);
             const docSnap = await getDoc(docRef);
@@ -80,7 +84,7 @@ function CafeteriaBookingComponent() {
         };
 
         fetchCafeteria();
-    }, [cafeteriaId, router, toast]);
+    }, [cafeteriaId, router, toast, db]);
 
     const availableSeatsAtSelectedTable = useMemo(() => {
         if (!selectedTable) return 0;
@@ -94,7 +98,7 @@ function CafeteriaBookingComponent() {
 
     useEffect(() => {
         const fetchBookingsForSlot = async () => {
-            if (!cafeteriaId || !bookingDate || !timeSlot || !user) {
+            if (!cafeteriaId || !bookingDate || !timeSlot || !user || !db) {
                 setBookingsBySlot({});
                 setUserTotalBookedSeats(0);
                 return;
@@ -128,7 +132,7 @@ function CafeteriaBookingComponent() {
         };
 
         fetchBookingsForSlot();
-    }, [cafeteriaId, bookingDate, timeSlot, user]);
+    }, [cafeteriaId, bookingDate, timeSlot, user, db]);
 
 
     const handleTableClick = (table: TableLayout) => {
@@ -155,7 +159,7 @@ function CafeteriaBookingComponent() {
     };
 
     const handleConfirmBooking = async () => {
-        if (!cafeteria || !selectedTable || !bookingDate || !timeSlot || !user || seatCount === 0) {
+        if (!cafeteria || !selectedTable || !bookingDate || !timeSlot || !user || seatCount === 0 || !db) {
             toast({ title: "Booking Error", description: "Please select number of seats.", variant: "destructive" });
             return;
         }

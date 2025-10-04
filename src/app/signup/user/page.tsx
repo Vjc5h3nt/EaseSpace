@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/logo";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { auth, db } from "@/lib/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -32,16 +32,19 @@ export default function UserSignupPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const auth = useAuth();
+  const db = useFirestore();
 
   useEffect(() => {
     const fetchOrgs = async () => {
+      if (!db) return;
       const orgsCollection = collection(db, "organizations");
       const orgsSnapshot = await getDocs(orgsCollection);
       const orgsList = orgsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization));
       setOrganizations(orgsList);
     };
     fetchOrgs();
-  }, []);
+  }, [db]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,6 +57,12 @@ export default function UserSignupPage() {
 
   const handleSignup = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
+    if (!auth || !db) {
+      toast({ title: "Error", description: "Firebase not initialized.", variant: "destructive" });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;

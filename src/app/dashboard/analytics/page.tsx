@@ -5,13 +5,15 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import type { Booking, User } from "@/lib/types";
-import { auth, db } from "@/lib/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AnalyticsPage() {
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
     const [orgId, setOrgId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -25,8 +27,9 @@ export default function AnalyticsPage() {
     const [dailyUsageData, setDailyUsageData] = useState<{ name: string; value: number }[]>([]);
 
     useEffect(() => {
+        if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
+            if (user && db) {
                 const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
                 if (!userDoc.empty) {
                     const userOrgId = userDoc.docs[0].data().org_id;
@@ -38,10 +41,10 @@ export default function AnalyticsPage() {
             }
         });
         return () => unsubscribe();
-    }, []);
+    }, [auth, db]);
 
     const fetchAnalyticsData = async (orgId: string) => {
-        if (!orgId) return;
+        if (!orgId || !db) return;
         setLoading(true);
 
         try {

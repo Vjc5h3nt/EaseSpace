@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Trash2, Building, Utensils, AlertTriangle } from "lucide-react";
 import type { Cafeteria, MeetingRoom, TableLayout, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db } from '@/lib/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,9 @@ export default function OnboardingPage() {
   const [meetingRooms, setMeetingRooms] = useState<Omit<MeetingRoom, 'id' | 'org_id'>[]>([]);
   
   // User and org state
-  const [user, setUser] = useState(auth.currentUser);
+  const auth = useAuth();
+  const db = useFirestore();
+  const [user, setUser] = useState(auth?.currentUser);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [orgId, setOrgId] = useState<string | null>(null);
 
@@ -43,6 +45,7 @@ export default function OnboardingPage() {
   const [currentLayout, setCurrentLayout] = useState<TableLayout[]>([]);
   
   useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         await currentUser.reload(); // Refresh user state to get latest emailVerified status
@@ -57,7 +60,7 @@ export default function OnboardingPage() {
             duration: 5000,
           });
         }
-        
+        if (!db) return;
         const userDocRef = doc(db, "users", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
@@ -72,7 +75,7 @@ export default function OnboardingPage() {
       }
     });
     return () => unsubscribe();
-  }, [router, toast]);
+  }, [router, toast, auth, db]);
   
   const addCafeteria = () => {
     if (newCafeteriaName.trim()) {
@@ -109,7 +112,7 @@ export default function OnboardingPage() {
   };
   
   const finishOnboarding = async () => {
-    if (!orgId || !user || !isEmailVerified) {
+    if (!orgId || !user || !isEmailVerified || !db) {
         toast({ title: "Error", description: "You must verify your email before finishing setup.", variant: 'destructive' });
         return;
     }

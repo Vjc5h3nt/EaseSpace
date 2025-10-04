@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User as UserIcon, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db, storage } from '@/lib/firebase';
+import { useAuth, useFirestore, useStorage } from '@/firebase';
 import { onAuthStateChanged, updateProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -16,6 +17,9 @@ import type { User } from '@/lib/types';
 
 export default function SettingsPage() {
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
+    const storage = useStorage();
     const [user, setUser] = useState<User | null>(null);
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
@@ -24,8 +28,9 @@ export default function SettingsPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
+        if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
+            if (currentUser && db) {
                 const userDocRef = doc(db, "users", currentUser.uid);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
@@ -38,7 +43,7 @@ export default function SettingsPage() {
             }
         });
         return () => unsubscribe();
-    }, []);
+    }, [auth, db]);
 
     const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -49,7 +54,7 @@ export default function SettingsPage() {
     };
 
     const handleSaveChanges = async () => {
-        if (!auth.currentUser) return;
+        if (!auth?.currentUser || !db || !storage) return;
 
         try {
             // Update profile picture if changed

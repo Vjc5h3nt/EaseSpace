@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import type { User, Cafeteria, MeetingRoom } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,14 +15,17 @@ import Link from "next/link";
 
 export default function UserDashboardPage() {
   const router = useRouter();
+  const auth = useAuth();
+  const db = useFirestore();
   const [user, setUser] = useState<User | null>(null);
   const [cafeterias, setCafeterias] = useState<Cafeteria[]>([]);
   const [meetingRooms, setMeetingRooms] = useState<MeetingRoom[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
+      if (currentUser && db) {
         const userDocRef = doc(db, "users", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
@@ -43,9 +47,10 @@ export default function UserDashboardPage() {
       }
     });
     return () => unsubscribe();
-  }, [router]);
+  }, [router, auth, db]);
 
   const fetchSpaces = async (org_id: string) => {
+    if (!db) return;
     // This function will only be called if org_id is valid.
     setLoading(true);
     try {
@@ -66,6 +71,7 @@ export default function UserDashboardPage() {
   };
   
   const handleLogout = async () => {
+    if (!auth) return;
     try {
       await auth.signOut();
       router.push("/login");

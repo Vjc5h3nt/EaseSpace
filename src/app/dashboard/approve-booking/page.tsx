@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X } from 'lucide-react';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import type { Booking, User, MeetingRoom, Cafeteria } from '@/lib/types';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,8 @@ type EnrichedBooking = Booking & { userName: string, spaceName: string };
 
 export default function ApproveBookingPage() {
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
     const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
     const [orgId, setOrgId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -26,6 +28,7 @@ export default function ApproveBookingPage() {
 
 
     const fetchBookings = async (orgId: string) => {
+        if (!db) return;
         setLoading(true);
         try {
             const bookingsQuery = query(
@@ -73,8 +76,9 @@ export default function ApproveBookingPage() {
     };
     
     useEffect(() => {
+        if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
+            if (user && db) {
                 const adminUserDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
                 if (!adminUserDoc.empty) {
                     const adminOrgId = adminUserDoc.docs[0].data().org_id;
@@ -87,9 +91,10 @@ export default function ApproveBookingPage() {
         });
         
         return () => unsubscribe();
-    }, []);
+    }, [auth, db]);
 
     const handleBookingAction = async (booking: EnrichedBooking, newStatus: 'Confirmed' | 'Cancelled') => {
+        if (!db) return;
         if (newStatus === 'Cancelled') {
             const bookingRef = doc(db, 'bookings', booking.id);
             await updateDoc(bookingRef, { status: newStatus });

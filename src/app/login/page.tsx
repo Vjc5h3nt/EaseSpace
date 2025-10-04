@@ -10,13 +10,14 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-// import { auth, db } from "@/lib/firebase";
-// import { signInWithEmailAndPassword } from "firebase/auth";
+import { useAuth } from "@/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Home } from "lucide-react";
-// import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import React from "react";
 import { Logo } from "@/components/logo";
+import { useFirestore } from "@/firebase";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -27,6 +28,8 @@ export default function UserLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const auth = useAuth();
+  const db = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -38,64 +41,63 @@ export default function UserLoginPage() {
 
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
-    toast({
-        title: "Login Temporarily Disabled",
-        description: "Login functionality is being restored. Please try again shortly.",
+    if (!auth || !db) {
+        toast({ title: "Error", description: "Firebase not initialized.", variant: "destructive" });
+        setIsLoading(false);
+        return;
+    }
+    
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+         toast({ title: "Login Failed", description: "User data not found.", variant: "destructive" });
+         await auth.signOut();
+         setIsLoading(false);
+         return;
+      }
+      
+      const userData = userDoc.data();
+
+      // Email verification check for BOTH admin and user roles
+      if (!user.emailVerified) {
+          toast({ title: "Verification Required", description: "Please verify your email address before logging in. Check your inbox for a verification link.", variant: "destructive", duration: 7000 });
+          await auth.signOut();
+          setIsLoading(false);
+          return;
+      }
+
+      if (userData.role === 'admin') {
+         toast({ title: "Success", description: "Logged in successfully." });
+         if (userData.onboardingComplete) {
+            router.push("/dashboard/admin");
+         } else {
+            router.push("/onboarding");
+         }
+      } else { // It's a 'user'
+          if (userData.status === 'pending') {
+              toast({ title: "Approval Pending", description: "Your account is pending approval from the admin.", variant: "destructive"});
+              await auth.signOut();
+          } else if (userData.status === 'rejected') {
+              toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
+              await auth.signOut();
+          } else {
+              toast({ title: "Success", description: "Logged in successfully." });
+              router.push("/dashboard/user"); 
+          }
+      }
+
+    } catch (error: any) {
+      toast({
+        title: "Login Failed",
+        description: "Please check your email and password.",
         variant: "destructive",
       });
-    setIsLoading(false);
-    //
-    // try {
-    //   const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-    //   const user = userCredential.user;
-
-    //   const userDoc = await getDoc(doc(db, "users", user.uid));
-    //   if (!userDoc.exists()) {
-    //      toast({ title: "Login Failed", description: "User data not found.", variant: "destructive" });
-    //      await auth.signOut();
-    //      setIsLoading(false);
-    //      return;
-    //   }
-      
-    //   const userData = userDoc.data();
-
-    //   // Email verification check for BOTH admin and user roles
-    //   if (!user.emailVerified) {
-    //       toast({ title: "Verification Required", description: "Please verify your email address before logging in. Check your inbox for a verification link.", variant: "destructive", duration: 7000 });
-    //       await auth.signOut();
-    //       setIsLoading(false);
-    //       return;
-    //   }
-
-    //   if (userData.role === 'admin') {
-    //      toast({ title: "Success", description: "Logged in successfully." });
-    //      if (userData.onboardingComplete) {
-    //         router.push("/dashboard/admin");
-    //      } else {
-    //         router.push("/onboarding");
-    //      }
-    //   } else { // It's a 'user'
-    //       if (userData.status === 'pending') {
-    //           toast({ title: "Approval Pending", description: "Your account is pending approval from the admin.", variant: "destructive"});
-    //           await auth.signOut();
-    //       } else if (userData.status === 'rejected') {
-    //           toast({ title: "Access Denied", description: "Your account request was rejected.", variant: "destructive"});
-    //           await auth.signOut();
-    //       } else {
-    //           toast({ title: "Success", description: "Logged in successfully." });
-    //           router.push("/dashboard/user"); 
-    //       }
-    //   }
-
-    // } catch (error: any) {
-    //   toast({
-    //     title: "Login Failed",
-    //     description: "Please check your email and password.",
-    //     variant: "destructive",
-    //   });
-    // } finally {
-    //   setIsLoading(false);
-    // }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
