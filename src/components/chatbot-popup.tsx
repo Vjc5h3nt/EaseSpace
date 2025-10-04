@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Bot } from "lucide-react";
 import { ChatInterface } from "@/components/chat-interface";
 import { getBookingInsights } from "@/ai/flows/admin-booking-insights";
@@ -36,6 +36,9 @@ export function ChatbotPopup() {
                 <DialogContent className="sm:max-w-[425px] p-0 border-0">
                     <DialogHeader className="p-4 border-b">
                         <DialogTitle>Admin AI Assistant</DialogTitle>
+                        <p className="text-xs italic text-destructive">
+                            Chatbot DB context addition is WIP. Please expect incorrect responses.
+                        </p>
                     </DialogHeader>
                     <div className="h-[70vh]">
                      <ChatInterface
