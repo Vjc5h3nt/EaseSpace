@@ -14,16 +14,16 @@ import {z} from 'genkit';
 import { findAvailableMeetingRoomsTool, bookMeetingRoomTool } from '../tools/booking-tools';
 
 const BookingContextSchema = z.object({
-  date: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  capacity: z.number().optional(),
+  date: z.string().nullable().optional(),
+  startTime: z.string().nullable().optional(),
+  endTime: z.string().nullable().optional(),
+  capacity: z.number().nullable().optional(),
 });
 
 const UserNaturalLanguageBookingInputSchema = z.object({
   query: z.string().describe('The user query in natural language for booking a resource.'),
   userId: z.string().describe('The authenticated user ID.'),
-  orgId: z.string().describe('The user\'s organization ID.'),
+  orgId: z.string().describe("The user's organization ID."),
   currentDate: z.string().describe('The current date in YYYY-MM-DD format.'),
   context: BookingContextSchema.optional().describe('The current state of booking details collected so far.'),
 });
