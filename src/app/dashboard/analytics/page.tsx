@@ -88,11 +88,12 @@ export default function AnalyticsPage() {
             const noShowCount = noShows.length;
 
             const enrichedNoShows = noShows.map(b => ({
-                ...b,
+                ...(b as Booking & { id: string }), // Ensure id is present
                 userName: usersMap.get(b.userId) || 'Unknown User',
                 spaceName: spacesMap.get(b.spaceId) || 'Unknown Space'
             })).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            setNoShowBookings(enrichedNoShows);
+            
+            setNoShowBookings(enrichedNoShows as EnrichedNoShowBooking[]);
 
             // Peak Hour
             const hours = Array(24).fill(0);
@@ -234,7 +235,7 @@ export default function AnalyticsPage() {
                                             <TableCell>{booking.spaceName}</TableCell>
                                             <TableCell>{booking.date}</TableCell>
                                             <TableCell>{booking.startTime} - {booking.endTime}</TableCell>
-                                            <TableCell><Badge variant="destructive">No-Show</Badge></TableCell>
+                                            <TableCell><Badge variant="destructive" className="bg-orange-100 text-orange-800 hover:bg-orange-100/80">No-Show</Badge></TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
