@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Check, X, Eye, User as UserIcon, UserCheck, UserX } from 'lucide-react';
+import { PlusCircle, Check, X, Eye, User as UserIcon, UserCheck, UserX, UploadCloud, FileSpreadsheet } from 'lucide-react';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { useAuth, useFirestore } from '@/firebase';
 import type { User } from '@/lib/types';
@@ -17,6 +17,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import Papa from 'papaparse';
+
+interface InvitedUser {
+    fullName: string;
+    email: string;
+    status: 'Ready to Invite' | 'Processing' | 'Invited';
+}
 
 export default function UsersPage() {
     const { toast } = useToast();
@@ -28,6 +36,12 @@ export default function UsersPage() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState('all');
+
+    // CSV Import State
+    const [isImporting, setIsImporting] = useState(false);
+    const [csvFile, setCsvFile] = useState<File | null>(null);
+    const [invitedUsers, setInvitedUsers] = useState<InvitedUser[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchUsers = async (orgId: string) => {
         if (!orgId || !db) return;
@@ -87,6 +101,70 @@ export default function UsersPage() {
         setSelectedUser(user);
         setIsViewModalOpen(true);
     }
+    
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files && event.target.files.length > 0) {
+            setCsvFile(event.target.files[0]);
+            parseCsv(event.target.files[0]);
+        }
+    };
+
+    const parseCsv = (file: File) => {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                const parsedUsers = results.data.map((row: any) => ({
+                    fullName: row.fullName || 'N/A',
+                    email: row.email || 'N/A',
+                    status: 'Ready to Invite'
+                })).filter(u => u.email !== 'N/A');
+                setInvitedUsers(parsedUsers);
+            },
+            error: (error: any) => {
+                toast({ title: 'CSV Parse Error', description: error.message, variant: 'destructive' });
+            }
+        });
+    };
+    
+    const handleProcessInvitations = async () => {
+        setIsImporting(true);
+        toast({
+            title: "Processing Invitations (Simulation)",
+            description: "This is a simulation. In a real application, a backend function would now process these users.",
+        });
+
+        console.log("--- SIMULATING BACKEND USER IMPORT ---");
+        console.log("The following logic would run on a secure server (e.g., a Cloud Function).");
+        
+        for (let i = 0; i < invitedUsers.length; i++) {
+            const user = invitedUsers[i];
+            
+            // Simulate processing each user
+            setInvitedUsers(prev => {
+                const newUsers = [...prev];
+                newUsers[i].status = 'Processing';
+                return newUsers;
+            });
+            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+
+            console.log(`\nProcessing user: ${user.email}`);
+            console.log(`1. Calling Firebase Admin SDK: admin.auth().createUser({ email: '${user.email}', fullName: '${user.fullName}' })`);
+            console.log(`2. Calling Firebase Admin SDK: admin.auth().generatePasswordResetLink('${user.email}')`);
+            console.log(`3. Sending email to ${user.email} with the password setup link.`);
+            
+            // Simulate success
+            setInvitedUsers(prev => {
+                const newUsers = [...prev];
+                newUsers[i].status = 'Invited';
+                return newUsers;
+            });
+        }
+        
+        console.log("\n--- SIMULATION COMPLETE ---");
+        setIsImporting(false);
+        toast({ title: "Simulation Complete", description: "Check the console for backend process details." });
+    };
 
     const pendingUsers = users.filter(u => u.status === 'pending');
     const admins = users.filter(u => u.role === 'admin');
@@ -106,11 +184,77 @@ export default function UsersPage() {
                     <h1 className="text-3xl font-bold text-neutral-900">Org Users</h1>
                     <p className="text-neutral-600 mt-1">Manage users and approve requests within your organization.</p>
                 </div>
-                <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Invite User
-                </Button>
             </header>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle>Invite Users</CardTitle>
+                    <CardDescription>Bulk invite users by uploading a CSV file with 'email' and 'fullName' columns.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                         <div>
+                            <div 
+                                className="flex justify-center w-full rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 cursor-pointer hover:border-primary"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <div className="text-center">
+                                    <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
+                                    <p className="mt-2 text-sm text-gray-600">
+                                       {csvFile ? `Selected: ${csvFile.name}` : 'Click to select a .csv file'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">Max file size: 2MB</p>
+                                </div>
+                            </div>
+                            <Input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                accept=".csv"
+                                className="hidden"
+                            />
+                        </div>
+                        <div className='space-y-4'>
+                            {invitedUsers.length > 0 && (
+                                <div className="space-y-4">
+                                     <Card className="max-h-60 overflow-y-auto">
+                                        <CardContent className="p-0">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Name</TableHead>
+                                                        <TableHead>Email</TableHead>
+                                                        <TableHead>Status</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {invitedUsers.map((user, index) => (
+                                                        <TableRow key={index}>
+                                                            <TableCell>{user.fullName}</TableCell>
+                                                            <TableCell>{user.email}</TableCell>
+                                                            <TableCell><Badge variant="secondary">{user.status}</Badge></TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </CardContent>
+                                     </Card>
+                                    <Button onClick={handleProcessInvitations} disabled={isImporting || invitedUsers.length === 0} className="w-full">
+                                        {isImporting ? "Processing..." : `Invite ${invitedUsers.length} Users`}
+                                    </Button>
+                                </div>
+                            )}
+                            {invitedUsers.length === 0 && (
+                                 <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 border rounded-lg h-full">
+                                    <FileSpreadsheet className="w-10 h-10 mb-2"/>
+                                    <p>CSV data will be previewed here.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             <Card>
                  <CardContent className="p-6">
                     <Tabs defaultValue="pending">
