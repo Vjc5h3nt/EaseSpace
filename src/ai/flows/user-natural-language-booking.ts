@@ -11,7 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { findAvailableMeetingRoomsTool, bookMeetingRoomTool } from '../tools/booking-tools';
+import { findAvailableMeetingRoomsTool, bookMeetingRoomTool, countAllMeetingRoomsTool } from '../tools/booking-tools';
 
 const BookingContextSchema = z.object({
   date: z.string().nullable().optional(),
@@ -49,9 +49,9 @@ const prompt = ai.definePrompt({
   name: 'userNaturalLanguageBookingPrompt',
   input: {schema: UserNaturalLanguageBookingInputSchema},
   output: {schema: UserNaturalLanguageBookingOutputSchema},
-  tools: [findAvailableMeetingRoomsTool, bookMeetingRoomTool],
+  tools: [findAvailableMeetingRoomsTool, bookMeetingRoomTool, countAllMeetingRoomsTool],
   prompt: `You are a friendly and helpful booking assistant for an organization's workspace.
-Your goal is to help users book meeting rooms based on their natural language requests.
+Your goal is to help users book meeting rooms based on their natural language requests. You can also answer general questions about the meeting rooms, like how many there are in total.
 
 You already know who the user is (userId: {{{userId}}}) and which organization they belong to (orgId: {{{orgId}}}). Do not ask for this information.
 The current date is {{{currentDate}}}. Use this as a reference if the user mentions 'today' or 'tomorrow'.
@@ -67,8 +67,11 @@ Here is the user's latest request:
 
 **Your Task:**
 1.  **Analyze and Update Context**: Parse the user's query to extract any new booking details (date, time, duration, capacity, etc.). Update the internal context with this new information. The user might provide all details at once or one by one.
-2.  **Identify Missing Information**: Review the context. What critical information is still missing? (You need date, startTime, endTime, and capacity).
-3.  **Take Action**:
+2.  **Identify User's Intent**:
+    *   If the user is asking a general question (e.g., "how many rooms are there?"), use the appropriate tool (like 'countAllMeetingRoomsTool') to answer them.
+    *   If the user is trying to book a room, proceed to the next step.
+3.  **Check for Missing Information (for booking)**: Review the context. What critical information is still missing? (You need date, startTime, endTime, and capacity).
+4.  **Take Action**:
     *   **If information is missing**: Ask the user for **only the missing pieces of information**. Be specific. For example, if you have the date and time but not the capacity, ask "How many people will be attending?". Do NOT ask for information you already have. Set 'isAvailable' to false and make 'confirmationMessage' your question.
     *   **If you have all the information**: Use the 'findAvailableMeetingRoomsTool' to check for rooms.
         *   **If rooms are available**: Suggest one or more rooms to the user. If they confirm, use 'bookMeetingRoomTool' to book it. After booking, respond with a friendly confirmation message. Set 'isAvailable' to true.

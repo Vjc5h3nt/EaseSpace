@@ -144,3 +144,26 @@ export const bookMeetingRoomTool = ai.defineTool(
         };
     }
 );
+
+// Tool to count all meeting rooms
+export const countAllMeetingRoomsTool = ai.defineTool(
+    {
+        name: 'countAllMeetingRoomsTool',
+        description: 'Counts the total number of meeting rooms in the organization.',
+        inputSchema: z.object({
+            orgId: z.string().describe("The user's organization ID."),
+        }),
+        outputSchema: z.object({
+            count: z.number().describe('The total number of meeting rooms.'),
+        }),
+    },
+    async (input) => {
+        console.log('Counting all meeting rooms for orgId:', input.orgId);
+        const roomsQuery = query(
+            collection(db, 'meetingRooms'),
+            where('org_id', '==', input.orgId)
+        );
+        const roomsSnapshot = await getDocs(roomsQuery);
+        return { count: roomsSnapshot.size };
+    }
+);
