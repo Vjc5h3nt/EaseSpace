@@ -12,15 +12,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth, useFirestore } from '@/firebase';
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import type { User } from '@/lib/types';
+import type { User, Organization } from '@/lib/types';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function SettingsPage() {
     const { toast } = useToast();
     const auth = useAuth();
     const db = useFirestore();
     const [user, setUser] = useState<User | null>(null);
+    const [organizationName, setOrganizationName] = useState('');
+    
+    // Editable fields
     const [displayName, setDisplayName] = useState('');
-    const [email, setEmail] = useState('');
+    const [mobileNumber, setMobileNumber] = useState('');
+    const [employeeId, setEmployeeId] = useState('');
+
     const [profilePic, setProfilePic] = useState<File | null>(null);
     const [profilePicUrl, setProfilePicUrl] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,8 +42,18 @@ export default function SettingsPage() {
                     const userData = userDocSnap.data() as User;
                     setUser(userData);
                     setDisplayName(currentUser.displayName || userData.fullName || '');
-                    setEmail(currentUser.email || '');
                     setProfilePicUrl(currentUser.photoURL || userData.photoURL || '');
+                    setMobileNumber(userData.mobileNumber || '');
+                    setEmployeeId(userData.employeeId || '');
+
+                    // Fetch organization name
+                    if(userData.org_id) {
+                        const orgDocRef = doc(db, 'organizations', userData.org_id);
+                        const orgDocSnap = await getDoc(orgDocRef);
+                        if(orgDocSnap.exists()){
+                            setOrganizationName(orgDocSnap.data().name);
+                        }
+                    }
                 }
             }
         });
@@ -53,64 +69,57 @@ export default function SettingsPage() {
     };
 
     const handleSaveChanges = async () => {
-        if (!auth?.currentUser || !db) return;
+        if (!auth?.currentUser || !db || !user) return;
         setIsSaving(true);
 
         try {
             let finalPhotoURL = profilePicUrl;
 
-            // 1. If a new profile picture is selected, upload it to R2
             if (profilePic) {
-                // Get the presigned URL from our API route
                 const presignedUrlResponse = await fetch('/api/upload-url', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fileType: profilePic.type, folder: 'profilePictures' }),
                 });
 
-                if (!presignedUrlResponse.ok) {
-                    throw new Error('Failed to get an upload URL.');
-                }
+                if (!presignedUrlResponse.ok) throw new Error('Failed to get an upload URL.');
                 const { uploadUrl, publicUrl } = await presignedUrlResponse.json();
 
-                // Upload the file to R2 using the presigned URL
                 const uploadResponse = await fetch(uploadUrl, {
                     method: 'PUT',
                     body: profilePic,
                     headers: { 'Content-Type': profilePic.type },
                 });
 
-                if (!uploadResponse.ok) {
-                    throw new Error('Failed to upload image.');
-                }
-                
+                if (!uploadResponse.ok) throw new Error('Failed to upload image.');
                 finalPhotoURL = publicUrl;
             }
-
-            // 2. Update Firebase Auth and Firestore with the new info
+            
             const userDocRef = doc(db, "users", auth.currentUser.uid);
+            
+            const updates: Partial<User> = {
+                fullName: displayName,
+                photoURL: finalPhotoURL,
+            };
+
+            // Only update if the field was previously empty
+            if (!user.mobileNumber && mobileNumber) {
+                updates.mobileNumber = mobileNumber;
+            }
+             if (!user.employeeId && employeeId) {
+                updates.employeeId = employeeId;
+            }
 
             await updateProfile(auth.currentUser, {
                 displayName: displayName,
                 photoURL: finalPhotoURL
             });
             
-            await updateDoc(userDocRef, { 
-                fullName: displayName,
-                photoURL: finalPhotoURL
-            });
+            await updateDoc(userDocRef, updates);
 
-            // Update local state
+            // Update local state to reflect changes and lock fields
+            setUser(prev => ({...prev!, ...updates}));
             setProfilePicUrl(finalPhotoURL);
-
-            // This part for email update is commented out as it requires re-authentication, we can re-add if needed
-            // if (email !== auth.currentUser.email) {
-            //     await verifyBeforeUpdateEmail(auth.currentUser, email);
-            //      toast({
-            //         title: "Verification Email Sent",
-            //         description: `Please check your new email (${email}) to verify the change.`,
-            //     });
-            // }
 
             toast({ title: "Success", description: "Profile updated successfully!" });
 
@@ -125,6 +134,9 @@ export default function SettingsPage() {
     if (!user) {
         return <div>Loading...</div>;
     }
+
+    const canEditMobile = !user.mobileNumber;
+    const canEditEmployeeId = !user.employeeId;
 
     return (
         <div className="flex flex-col gap-8">
@@ -154,15 +166,47 @@ export default function SettingsPage() {
                            <Upload className="mr-2 h-4 w-4" /> Change Picture
                         </Button>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="displayName">Display Name</Label>
-                        <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="displayName">Display Name</Label>
+                            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="email">Email Address</Label>
+                            <Input id="email" type="email" value={user.email} readOnly disabled />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="employeeId">Employee ID</Label>
+                            <Input 
+                                id="employeeId" 
+                                value={employeeId} 
+                                onChange={(e) => setEmployeeId(e.target.value)} 
+                                readOnly={!canEditEmployeeId} 
+                                disabled={!canEditEmployeeId}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="mobileNumber">Mobile Number</Label>
+                            <Input 
+                                id="mobileNumber" 
+                                value={mobileNumber} 
+                                onChange={(e) => setMobileNumber(e.target.value)} 
+                                readOnly={!canEditMobile} 
+                                disabled={!canEditMobile}
+                            />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="orgName">Organization</Label>
+                            <Input id="orgName" value={organizationName} readOnly disabled />
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Email Address</Label>
-                        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled />
-                        <p className="text-xs text-muted-foreground">Changing your email is disabled for now.</p>
-                    </div>
+                    
+                     <Alert>
+                        <AlertDescription>
+                          To edit fields that are locked, please contact your organization's administrator.
+                        </AlertDescription>
+                    </Alert>
+
                      <Button onClick={handleSaveChanges} disabled={isSaving}>
                         {isSaving ? 'Saving...' : 'Save Changes'}
                      </Button>

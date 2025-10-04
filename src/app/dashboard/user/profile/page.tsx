@@ -12,10 +12,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth, useFirestore } from '@/firebase';
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import type { User } from '@/lib/types';
+import type { User, Organization } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function UserProfilePage() {
     const router = useRouter();
@@ -23,8 +24,15 @@ export default function UserProfilePage() {
     const auth = useAuth();
     const db = useFirestore();
     const [user, setUser] = useState<User | null>(null);
+    const [organizationName, setOrganizationName] = useState('');
+
+    // Form state
+    const [displayName, setDisplayName] = useState('');
+    const [mobileNumber, setMobileNumber] = useState('');
+    const [employeeId, setEmployeeId] = useState('');
     const [profilePic, setProfilePic] = useState<File | null>(null);
     const [profilePicUrl, setProfilePicUrl] = useState('');
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -38,7 +46,18 @@ export default function UserProfilePage() {
                 if (userDocSnap.exists()) {
                     const userData = userDocSnap.data() as User;
                     setUser(userData);
+                    setDisplayName(currentUser.displayName || userData.fullName || '');
                     setProfilePicUrl(currentUser.photoURL || userData.photoURL || '');
+                    setMobileNumber(userData.mobileNumber || '');
+                    setEmployeeId(userData.employeeId || '');
+
+                     if(userData.org_id) {
+                        const orgDocRef = doc(db, 'organizations', userData.org_id);
+                        const orgDocSnap = await getDoc(orgDocRef);
+                        if(orgDocSnap.exists()){
+                            setOrganizationName(orgDocSnap.data().name);
+                        }
+                    }
                 } else {
                     router.push('/login');
                 }
@@ -58,68 +77,75 @@ export default function UserProfilePage() {
         }
     };
 
-    const handleUpdateProfilePicture = async () => {
-        if (!auth?.currentUser || !profilePic || !db) {
-            toast({ title: "Error", description: "No file selected or user not logged in.", variant: "destructive" });
-            return;
-        }
+    const handleSaveChanges = async () => {
+        if (!auth?.currentUser || !user || !db) return;
         setIsSaving(true);
         
         try {
-            // Get a presigned URL from our API route
-            const response = await fetch('/api/upload-url', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileType: profilePic.type, folder: 'profilePictures' }),
-            });
-    
-            if (!response.ok) {
-                throw new Error('Failed to get upload URL.');
-            }
-    
-            const { uploadUrl, publicUrl } = await response.json();
-    
-            // Upload the file to R2
-            const uploadResponse = await fetch(uploadUrl, {
-                method: 'PUT',
-                body: profilePic,
-                headers: { 'Content-Type': profilePic.type },
-            });
-    
-            if (!uploadResponse.ok) {
-                throw new Error('Image upload failed.');
-            }
-    
-            const downloadURL = publicUrl;
-            
-            // Update auth profile
-            await updateProfile(auth.currentUser, { photoURL: downloadURL });
-            
-            // Update firestore document
-            const userDocRef = doc(db, "users", auth.currentUser.uid);
-            await updateDoc(userDocRef, { photoURL: downloadURL });
+            let finalPhotoURL = profilePicUrl;
 
-            setProfilePicUrl(downloadURL);
-            setProfilePic(null); // Reset file input state
-            toast({ title: "Success", description: "Profile picture updated successfully!" });
+            if (profilePic) {
+                const response = await fetch('/api/upload-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileType: profilePic.type, folder: 'profilePictures' }),
+                });
+        
+                if (!response.ok) throw new Error('Failed to get upload URL.');
+                const { uploadUrl, publicUrl } = await response.json();
+        
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    body: profilePic,
+                    headers: { 'Content-Type': profilePic.type },
+                });
+        
+                if (!uploadResponse.ok) throw new Error('Image upload failed.');
+                finalPhotoURL = publicUrl;
+            }
+            
+            const userDocRef = doc(db, "users", auth.currentUser.uid);
+             const updates: Partial<User> = {
+                fullName: displayName,
+                photoURL: finalPhotoURL,
+            };
+
+            if (!user.mobileNumber && mobileNumber) {
+                updates.mobileNumber = mobileNumber;
+            }
+             if (!user.employeeId && employeeId) {
+                updates.employeeId = employeeId;
+            }
+            
+            await updateProfile(auth.currentUser, { 
+                displayName: displayName,
+                photoURL: finalPhotoURL 
+            });
+            await updateDoc(userDocRef, updates);
+
+            // Update local state
+            setUser(prev => ({...prev!, ...updates}));
+            setProfilePicUrl(finalPhotoURL);
+            setProfilePic(null); 
+
+            toast({ title: "Success", description: "Profile updated successfully!" });
 
         } catch (error: any) {
-            toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+            toast({ title: "Update Failed", description: error.message, variant: "destructive" });
         } finally {
             setIsSaving(false);
         }
     };
     
-      const handleLogout = async () => {
-        if (!auth) return;
-        try {
-          await auth.signOut();
-          router.push("/login");
-        } catch (error) {
-          console.error("Error signing out:", error);
-        }
-      };
-
+    const handleLogout = async () => {
+    if (!auth) return;
+    try {
+        await auth.signOut();
+        router.push("/login");
+    } catch (error) {
+        console.error("Error signing out:", error);
+    }
+    };
 
     if (loading) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;
@@ -128,7 +154,9 @@ export default function UserProfilePage() {
     if (!user) {
         return <div className="flex justify-center items-center h-screen">No user data found. Redirecting to login...</div>;
     }
-
+    
+    const canEditMobile = !user.mobileNumber;
+    const canEditEmployeeId = !user.employeeId;
 
     return (
         <div className="flex h-screen bg-neutral-50">
@@ -165,10 +193,10 @@ export default function UserProfilePage() {
                     <h1 className="text-3xl font-bold text-neutral-900">Your Profile</h1>
                     <p className="text-neutral-600 mt-1">View your account details and manage your profile picture.</p>
                 </header>
-                <Card className="max-w-2xl">
+                <Card className="max-w-4xl">
                     <CardHeader>
                         <CardTitle>Profile Details</CardTitle>
-                        <CardDescription>Update your profile picture.</CardDescription>
+                        <CardDescription>Update your profile information.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="flex items-center gap-6">
@@ -176,40 +204,51 @@ export default function UserProfilePage() {
                                 <AvatarImage src={profilePicUrl} alt="Profile Picture" />
                                 <AvatarFallback><UserIcon className="w-10 h-10" /></AvatarFallback>
                             </Avatar>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                ref={fileInputRef}
-                                onChange={handleProfilePicChange}
-                                hidden
-                            />
-                            <div className="flex flex-col gap-2">
+                             <div className="flex flex-col gap-2">
                                 <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
                                     <Upload className="mr-2 h-4 w-4" /> Change Picture
                                 </Button>
-                                {profilePic && (
-                                    <Button onClick={handleUpdateProfilePicture} disabled={isSaving}>
-                                        {isSaving ? 'Saving...' : 'Save Picture'}
-                                    </Button>
-                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    ref={fileInputRef}
+                                    onChange={handleProfilePicChange}
+                                    hidden
+                                />
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="displayName">Full Name</Label>
-                            <Input id="displayName" value={user.fullName} readOnly disabled />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="displayName">Full Name</Label>
+                                <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email Address</Label>
+                                <Input id="email" type="email" value={user.email} readOnly disabled />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="employeeId">Employee ID</Label>
+                                <Input id="employeeId" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} readOnly={!canEditEmployeeId} disabled={!canEditEmployeeId} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="mobileNumber">Mobile Number</Label>
+                                <Input id="mobileNumber" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} readOnly={!canEditMobile} disabled={!canEditMobile} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="orgName">Organization</Label>
+                                <Input id="orgName" value={organizationName} readOnly disabled />
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email Address</Label>
-                            <Input id="email" type="email" value={user.email} readOnly disabled />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="employeeId">Employee ID</Label>
-                            <Input id="employeeId" value={user.employeeId || 'Not set'} readOnly disabled />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="mobileNumber">Mobile Number</Label>
-                            <Input id="mobileNumber" value={user.mobileNumber || 'Not set'} readOnly disabled />
-                        </div>
+
+                         <Alert>
+                            <AlertDescription>
+                            To edit fields that are locked, please contact your organization's administrator.
+                            </AlertDescription>
+                        </Alert>
+                        
+                        <Button onClick={handleSaveChanges} disabled={isSaving}>
+                            {isSaving ? 'Saving...' : 'Save Changes'}
+                        </Button>
                     </CardContent>
                 </Card>
             </main>
