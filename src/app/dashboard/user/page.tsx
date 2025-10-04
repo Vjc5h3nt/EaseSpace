@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon, Utensils, Building, ArrowRight, CalendarCheck } from "lucide-react";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
+import { UserChatbotPopup } from "@/components/user-chatbot-popup";
 
 export default function UserDashboardPage() {
   const router = useRouter();
@@ -81,7 +82,7 @@ export default function UserDashboardPage() {
   };
 
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen bg-neutral-50 relative">
       <aside className="w-64 flex flex-col justify-between border-r border-neutral-200 bg-white p-4">
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3 px-2">
@@ -174,6 +175,7 @@ export default function UserDashboardPage() {
             </div>
         )}
       </main>
+      {user && <UserChatbotPopup user={user} />}
     </div>
   );
 }
