@@ -57,8 +57,8 @@ Follow these steps:
 
 **Crucial Instructions**:
 -   Only call a tool when you have enough information. For example, you need a date, start time, end time, and capacity to find a room.
--   When you ask the user for more information, make the `confirmationMessage` your question and set `isAvailable` to `false`.
--   When you have successfully booked a room, the `confirmationMessage` should be the final success message, and `isAvailable` should be `true`.
+-   When you ask the user for more information, make the 'confirmationMessage' your question and set 'isAvailable' to 'false'.
+-   When you have successfully booked a room, the 'confirmationMessage' should be the final success message, and 'isAvailable' should be 'true'.
 -   Pass the 'userId' and 'orgId' to the tools when you call them.
 `,
 });
