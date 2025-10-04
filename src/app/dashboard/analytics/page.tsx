@@ -9,6 +9,12 @@ import { useAuth, useFirestore } from "@/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+import { isPast } from "date-fns";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
+
+type EnrichedNoShowBooking = Booking & { userName: string, spaceName: string };
 
 export default function AnalyticsPage() {
     const { toast } = useToast();
@@ -22,9 +28,12 @@ export default function AnalyticsPage() {
         utilizationRate: "0%",
         peakHour: "N/A",
         popularSpace: "N/A",
+        noShowCount: 0,
     });
     const [peakHoursData, setPeakHoursData] = useState<{ name: string; value: number }[]>([]);
     const [dailyUsageData, setDailyUsageData] = useState<{ name: string; value: number }[]>([]);
+    const [noShowBookings, setNoShowBookings] = useState<EnrichedNoShowBooking[]>([]);
+
 
     useEffect(() => {
         if (!auth) return;
@@ -48,21 +57,43 @@ export default function AnalyticsPage() {
         setLoading(true);
 
         try {
-            const [bookingsSnap, cafeteriasSnap, meetingRoomsSnap] = await Promise.all([
+            const [bookingsSnap, cafeteriasSnap, meetingRoomsSnap, usersSnap] = await Promise.all([
                 getDocs(query(collection(db, "bookings"), where("org_id", "==", orgId))),
                 getDocs(query(collection(db, "cafeterias"), where("org_id", "==", orgId))),
                 getDocs(query(collection(db, "meetingRooms"), where("org_id", "==", orgId))),
+                getDocs(query(collection(db, 'users'), where('org_id', '==', orgId))),
             ]);
             
             const allSpacesDocs = [...cafeteriasSnap.docs, ...meetingRoomsSnap.docs];
-
             const allBookings = bookingsSnap.docs.map(doc => doc.data() as Booking);
+            const allUsers = usersSnap.docs.map(doc => doc.data() as User);
+
+            const usersMap = new Map(allUsers.map(u => [u.uid, u.fullName]));
+            const spacesMap = new Map<string, string>();
+            allSpacesDocs.forEach(doc => spacesMap.set(doc.id, doc.data().name));
+            
             const totalCapacity = allSpacesDocs.reduce((acc, doc) => acc + (doc.data().capacity || 0), 0);
             
             // Stats
             const totalBookings = allBookings.length;
             const utilizationRate = totalCapacity > 0 ? ((totalBookings * 1) / (totalCapacity * 8 * 30)) * 100 : 0; // Simplified
             
+            // No-Shows
+            const noShows = allBookings.filter(b => 
+                b.spaceType === 'meetingRoom' &&
+                b.status !== 'Cancelled' &&
+                isPast(new Date(`${b.date}T${b.endTime}`)) &&
+                !b.checkedIn
+            );
+            const noShowCount = noShows.length;
+
+            const enrichedNoShows = noShows.map(b => ({
+                ...b,
+                userName: usersMap.get(b.userId) || 'Unknown User',
+                spaceName: spacesMap.get(b.spaceId) || 'Unknown Space'
+            })).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            setNoShowBookings(enrichedNoShows);
+
             // Peak Hour
             const hours = Array(24).fill(0);
             allBookings.forEach(b => {
@@ -74,21 +105,18 @@ export default function AnalyticsPage() {
             
             // Popular Space
             const spaceCounts: { [key: string]: number } = {};
-            const spaceNames: { [key: string]: string } = {};
-            allSpacesDocs.forEach(doc => {
-                spaceNames[doc.id] = doc.data().name;
-            });
             allBookings.forEach(b => {
                 spaceCounts[b.spaceId] = (spaceCounts[b.spaceId] || 0) + 1;
             });
             const popularSpaceId = Object.keys(spaceCounts).sort((a,b) => spaceCounts[b] - spaceCounts[a])[0];
-            const popularSpace = spaceNames[popularSpaceId] || 'N/A';
+            const popularSpace = spacesMap.get(popularSpaceId) || 'N/A';
             
             setStats({
                 totalBookings,
                 utilizationRate: `${utilizationRate.toFixed(1)}%`,
                 peakHour,
-                popularSpace
+                popularSpace,
+                noShowCount,
             });
 
             // Chart Data
@@ -126,10 +154,14 @@ export default function AnalyticsPage() {
 
             <section>
                 <h2 className="text-xl font-semibold text-neutral-900 mb-4">Overall Statistics</h2>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
                     <Card>
                         <CardHeader><CardTitle>Total Bookings</CardTitle></CardHeader>
                         <CardContent><p className="text-3xl font-bold">{stats.totalBookings}</p></CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader><CardTitle>No-Shows</CardTitle></CardHeader>
+                        <CardContent><p className="text-3xl font-bold">{stats.noShowCount}</p></CardContent>
                     </Card>
                     <Card>
                         <CardHeader><CardTitle>Utilization Rate</CardTitle></CardHeader>
@@ -146,7 +178,7 @@ export default function AnalyticsPage() {
                 </div>
             </section>
 
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>Peak Booking Hours</CardTitle>
@@ -175,6 +207,43 @@ export default function AnalyticsPage() {
                                 <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} />
                             </LineChart>
                         </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            </section>
+             <section>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>No-Show Booking Details</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Space</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Time Slot</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {noShowBookings.length > 0 ? (
+                                    noShowBookings.map(booking => (
+                                        <TableRow key={booking.id}>
+                                            <TableCell>{booking.userName}</TableCell>
+                                            <TableCell>{booking.spaceName}</TableCell>
+                                            <TableCell>{booking.date}</TableCell>
+                                            <TableCell>{booking.startTime} - {booking.endTime}</TableCell>
+                                            <TableCell><Badge variant="destructive">No-Show</Badge></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="h-24 text-center">No no-show bookings found.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     </CardContent>
                 </Card>
             </section>
