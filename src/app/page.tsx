@@ -1,11 +1,28 @@
 
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
+import React from "react";
 
 export default function Home() {
+    const heroImages = [
+      "https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/main1.png",
+      "https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/main2.png",
+      "https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/main3.png",
+      "https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/main4.png",
+      "https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/main5.png",
+    ];
+
+    const plugin = React.useRef(
+        Autoplay({ delay: 3000, stopOnInteraction: true })
+    );
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="px-4 lg:px-6 h-16 flex items-center border-b">
@@ -53,14 +70,27 @@ export default function Home() {
                     For employees and admins. No credit card required.
                 </p>
               </div>
-              <Image
-                src="https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/main1.png"
-                width="600"
-                height="400"
-                alt="Modern office interior with collaborative spaces"
-                className="mx-auto aspect-video overflow-hidden rounded-xl object-cover"
-                data-ai-hint="modern office meeting room"
-              />
+               <Carousel
+                    plugins={[plugin.current]}
+                    className="w-full"
+                    onMouseEnter={plugin.current.stop}
+                    onMouseLeave={plugin.current.reset}
+                >
+                    <CarouselContent>
+                        {heroImages.map((src, index) => (
+                            <CarouselItem key={index}>
+                                <Image
+                                    src={src}
+                                    width="600"
+                                    height="400"
+                                    alt={`Hero image ${index + 1}`}
+                                    className="mx-auto aspect-video overflow-hidden rounded-xl object-cover"
+                                    data-ai-hint="modern office workplace"
+                                />
+                            </CarouselItem>
+                        ))}
+                    </CarouselContent>
+                </Carousel>
             </div>
           </div>
         </section>
