@@ -10,7 +10,7 @@ import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, ArrowLeft, Users, Clock, CheckCircle2, XCircle, UserCheck, Eye, LayoutGrid, Table as TableIcon } from "lucide-react";
+import { Calendar as CalendarIcon, ArrowLeft, Users, Clock, CheckCircle2, XCircle, UserCheck, Eye, LayoutGrid } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, isBefore, startOfToday, addDays, isSameDay } from 'date-fns';
@@ -29,6 +29,27 @@ type BookingsForSlot = {
 }
 
 type ViewMode = 'grid' | 'layout';
+
+// A more descriptive icon for a cafeteria table
+function TableWithChairsIcon(props: React.SVGProps<SVGSVGElement>) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            {...props}
+        >
+            <path d="M4 12V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" />
+            <path d="M2 12h20" />
+            <path d="M6 12v8" />
+            <path d="M18 12v8" />
+        </svg>
+    );
+}
 
 function CafeteriaBookingComponent() {
     const router = useRouter();
@@ -363,7 +384,7 @@ function CafeteriaBookingComponent() {
                                             userHasBooking && "ring-2 ring-primary",
                                             getTableColorClass(availableSeats)
                                         )}>
-                                            <TableIcon className="w-5 h-5" />
+                                            <TableWithChairsIcon className="w-8 h-8" />
                                         </div>
                                         <span className="text-xs font-bold text-black mt-1">T{table.id.split('-')[1]}</span>
                                     </div>
@@ -423,4 +444,3 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
-

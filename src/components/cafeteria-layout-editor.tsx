@@ -3,10 +3,31 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Table as TableIcon, PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2 } from "lucide-react";
 import type { Cafeteria, TableLayout } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
+
+// A more descriptive icon for a cafeteria table
+function TableWithChairsIcon(props: React.SVGProps<SVGSVGElement>) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            {...props}
+        >
+            <path d="M4 12V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" />
+            <path d="M2 12h20" />
+            <path d="M6 12v8" />
+            <path d="M18 12v8" />
+        </svg>
+    );
+}
 
 interface CafeteriaLayoutEditorProps {
     cafeteria: Omit<Cafeteria, 'org_id'> & { org_id?: string };
@@ -102,7 +123,7 @@ export function CafeteriaLayoutEditor({ cafeteria, onLayoutChange }: CafeteriaLa
                         className="absolute w-10 h-10 flex items-center justify-center rounded-md bg-primary text-primary-foreground select-none group cursor-grab"
                         style={{ left: table.x, top: table.y, userSelect: 'none' }}
                     >
-                        <TableIcon className="w-6 h-6" />
+                        <TableWithChairsIcon className="w-6 h-6" />
                         <button onClick={(e) => { e.stopPropagation(); removeTable(table.id); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <Trash2 className="w-3 h-3"/>
                         </button>
