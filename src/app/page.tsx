@@ -48,7 +48,7 @@ export default function Home() {
       </header>
       <main className="flex-1">
         <section className="w-full py-12 md:py-20 lg:py-24">
-          <div className="container px-4 md:px-6">
+          <div className="container px-4 md:px-6 mx-auto">
             <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-2">
@@ -100,7 +100,7 @@ export default function Home() {
         </section>
         
         <section className="w-full py-12 md:py-24 bg-secondary">
-          <div className="container px-4 md:px-6">
+          <div className="container px-4 md:px-6 mx-auto">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
                 <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm text-primary font-medium">
@@ -112,7 +112,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 mt-12">
+            <div className="mx-auto grid max-w-5xl items-center justify-items-center gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 mt-12">
               <div className="grid gap-2 text-center">
                  <div className="flex justify-center items-center mb-4">
                     <Image
