@@ -181,7 +181,7 @@ export default function Home() {
                     <h3 className="font-semibold text-foreground mb-4">Company</h3>
                     <nav className="flex flex-col gap-2">
                         <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">About Us</Link>
-                        <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Contact</Link>
+                        <Link href="/request-demo" className="text-sm text-muted-foreground hover:text-foreground">Contact</Link>
                     </nav>
                 </div>
             </div>
