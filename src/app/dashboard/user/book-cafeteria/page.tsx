@@ -331,7 +331,7 @@ function CafeteriaBookingComponent() {
                                     key={table.id}
                                     className={cn(
                                         "transition-all hover:shadow-lg",
-                                        isFull && !userHasBooking ? "cursor-not-allowed opacity-70 bg-red-50 text-red-700" : "cursor-pointer",
+                                        isFull && !userHasBooking ? "cursor-not-allowed bg-red-50 text-red-700" : "cursor-pointer",
                                         userHasBooking && "ring-2 ring-primary",
                                         !isFull && availableSeats > 2 && "bg-green-50 text-green-700",
                                         !isFull && availableSeats <= 2 && "bg-orange-50 text-orange-700",
@@ -444,3 +444,5 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
+
+    
