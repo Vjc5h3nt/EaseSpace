@@ -3,6 +3,7 @@ import './globals.css';
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseProvider } from '@/firebase/provider';
+import { GeistSans } from 'geist/font/sans';
 
 export const metadata: Metadata = {
   title: 'EaseSpace',
@@ -15,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${GeistSans.variable}`} suppressHydrationWarning>
       <head>
       </head>
       <body className="font-body antialiased">
