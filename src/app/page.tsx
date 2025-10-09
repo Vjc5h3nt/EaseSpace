@@ -1,8 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, Bot, BarChart, ArrowRight, CheckCircle, ShieldCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/logo";
 
 export default function Home() {
@@ -29,11 +28,11 @@ export default function Home() {
         </nav>
       </header>
       <main className="flex-1">
-        <section className="w-full py-20 md:py-24 lg:py-32">
+        <section className="w-full py-12 md:py-20 lg:py-24">
           <div className="container px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-[1fr_500px] lg:gap-12 xl:grid-cols-[1fr_600px]">
-              <div className="flex flex-col justify-center space-y-6">
-                <div className="space-y-4">
+            <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
+              <div className="flex flex-col justify-center space-y-4">
+                <div className="space-y-2">
                   <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl xl:text-5xl/none text-foreground">
                     The Smart Way to Manage Your Workspace
                   </h1>
@@ -54,12 +53,12 @@ export default function Home() {
                 </p>
               </div>
                <Image
-                src="https://picsum.photos/seed/office/1200/800"
+                src="https://storage.googleapis.com/project-spark-b2481.appspot.com/static/com.google.spark.pagetool/resources/20240730_072044_379203_0.png"
                 width="600"
                 height="400"
                 alt="Modern office interior with collaborative spaces"
-                className="mx-auto aspect-video overflow-hidden rounded-xl object-cover sm:w-full lg:order-last"
-                data-ai-hint="modern office"
+                className="mx-auto aspect-video overflow-hidden rounded-xl object-cover"
+                data-ai-hint="modern office meeting room"
               />
             </div>
           </div>
@@ -72,7 +71,7 @@ export default function Home() {
                 <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm text-primary font-medium">
                   Key Features
                 </div>
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl mb-4">Everything You Need for a Smarter Workplace</h2>
+                <h2 className="mb-4 text-3xl font-bold tracking-tighter sm:text-4xl">Everything You Need for a Smarter Workplace</h2>
                 <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
                   From AI-powered scheduling to in-depth analytics, EaseSpace provides the tools to create an efficient and productive office environment.
                 </p>
@@ -82,11 +81,11 @@ export default function Home() {
               <div className="grid gap-2 text-center">
                  <div className="flex justify-center items-center mb-4">
                     <Image
-                      src="https://picsum.photos/seed/dashboard/400/300"
+                      src="https://storage.googleapis.com/project-spark-b2481.appspot.com/static/com.google.spark.pagetool/resources/20240730_072044_379203_1.png"
                       width="400"
                       height="300"
                       alt="Admin dashboard showing charts and stats"
-                      className="rounded-lg object-cover aspect-video"
+                      className="rounded-lg object-cover aspect-[4/3]"
                       data-ai-hint="data analytics dashboard"
                     />
                 </div>
@@ -98,11 +97,11 @@ export default function Home() {
               <div className="grid gap-2 text-center">
                  <div className="flex justify-center items-center mb-4">
                     <Image
-                      src="https://picsum.photos/seed/chatbot/400/300"
+                      src="https://storage.googleapis.com/project-spark-b2481.appspot.com/static/com.google.spark.pagetool/resources/20240730_072044_379203_2.png"
                       width="400"
                       height="300"
                       alt="AI chatbot interface for booking"
-                      className="rounded-lg object-cover aspect-video"
+                      className="rounded-lg object-cover aspect-[4/3]"
                       data-ai-hint="AI chatbot interface"
                     />
                 </div>
@@ -114,11 +113,11 @@ export default function Home() {
               <div className="grid gap-2 text-center">
                 <div className="flex justify-center items-center mb-4">
                    <Image
-                      src="https://picsum.photos/seed/charts/400/300"
+                      src="https://storage.googleapis.com/project-spark-b2481.appspot.com/static/com.google.spark.pagetool/resources/20240730_072044_379203_3.png"
                       width="400"
                       height="300"
                       alt="Utilization charts and graphs"
-                      className="rounded-lg object-cover aspect-video"
+                      className="rounded-lg object-cover aspect-[4/3]"
                       data-ai-hint="utilization charts graphs"
                     />
                 </div>
