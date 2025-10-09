@@ -25,24 +25,26 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="px-4 lg:px-6 h-16 flex items-center border-b">
-        <Link href="#" className="flex items-center justify-center gap-2" prefetch={false}>
-          <Logo className="h-6 w-6 text-primary" />
-          <span className="text-lg font-bold">EaseSpace</span>
-        </Link>
-        <nav className="ml-auto flex items-center gap-4 sm:gap-6">
-           <Button variant="ghost" asChild>
-            <Link
-              href="/login"
-              className="text-sm font-medium hover:underline underline-offset-4"
-              prefetch={false}
-            >
-              User Login
+        <div className="container flex items-center gap-4">
+            <Link href="#" className="flex items-center justify-center gap-2" prefetch={false}>
+            <Logo className="h-6 w-6 text-primary" />
+            <span className="text-lg font-bold">EaseSpace</span>
             </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/signup">Admin Onboarding</Link>
-          </Button>
-        </nav>
+            <nav className="ml-auto flex items-center gap-4 sm:gap-6">
+            <Button variant="ghost" asChild>
+                <Link
+                href="/login"
+                className="text-sm font-medium hover:underline underline-offset-4"
+                prefetch={false}
+                >
+                User Login
+                </Link>
+            </Button>
+            <Button asChild>
+                <Link href="/signup">Admin Onboarding</Link>
+            </Button>
+            </nav>
+        </div>
       </header>
       <main className="flex-1">
         <section className="w-full py-12 md:py-20 lg:py-24">
