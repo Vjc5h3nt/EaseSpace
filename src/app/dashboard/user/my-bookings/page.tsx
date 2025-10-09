@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { useAuth, useFirestore } from '@/firebase';
@@ -13,8 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Building, CalendarCheck, LogOut, User as UserIcon, ArrowUpDown, Calendar as CalendarIcon, X } from 'lucide-react';
-import { Logo } from '@/components/logo';
+import { ArrowUpDown, Calendar as CalendarIcon, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, isWithinInterval, addMinutes, subMinutes } from 'date-fns';
@@ -103,16 +101,6 @@ export default function MyBookingsPage() {
         }
     };
     
-    const handleLogout = async () => {
-        if (!auth) return;
-        try {
-          await auth.signOut();
-          router.push("/login");
-        } catch (error) {
-          console.error("Error signing out:", error);
-        }
-    };
-
     const requestSort = (key: keyof EnrichedBooking | 'slotDateTime' | 'createdAt') => {
         let direction: 'ascending' | 'descending' = 'ascending';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -157,161 +145,131 @@ export default function MyBookingsPage() {
 
 
     return (
-        <div className="flex h-screen bg-neutral-50">
-            <aside className="w-64 flex flex-col justify-between border-r border-neutral-200 bg-white p-4">
-                <div className="flex flex-col gap-6">
-                    <div className="flex items-center gap-3 px-2">
-                        <Logo className="h-8 w-8 text-primary" />
-                        <h1 className="text-xl font-bold text-neutral-900">EaseSpace</h1>
-                    </div>
-                    <nav className="flex flex-col gap-1">
-                        <Link href="/dashboard/user" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-neutral-600 hover:bg-neutral-100">
-                           <Building className="h-5 w-5" />
-                           <span className="text-sm font-medium">Book a Space</span>
-                        </Link>
-                         <Link href="/dashboard/user/my-bookings" className="flex items-center gap-3 rounded-md bg-primary-50 px-3 py-2.5 text-sm font-semibold text-primary-600">
-                          <CalendarCheck className="h-5 w-5" />
-                          <span>Manage My Booking</span>
-                        </Link>
-                        <Link href="/dashboard/user/profile" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-neutral-600 hover:bg-neutral-100">
-                           <UserIcon className="h-5 w-5" />
-                           <span className="text-sm font-medium">Profile</span>
-                        </Link>
-                    </nav>
-                </div>
-                 <div>
-                  <Button variant="ghost" className="w-full justify-start text-neutral-600 hover:bg-neutral-100" onClick={handleLogout}>
-                    <LogOut className="mr-3 h-5 w-5" />
-                    <span className="text-sm font-medium">Logout</span>
-                  </Button>
-                </div>
-            </aside>
-            <main className="flex-1 p-8 overflow-y-auto">
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold text-neutral-900">Manage My Bookings</h1>
-                    <p className="text-neutral-600 mt-1">Here are your past and upcoming bookings.</p>
-                </header>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>My Bookings</CardTitle>
-                        <CardDescription>View your booking history and manage upcoming reservations.</CardDescription>
-                        <div className="flex items-center gap-2 pt-4">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant={"outline"} className="w-[280px] justify-start text-left font-normal">
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {filterDate ? format(filterDate, "PPP") : <span>Filter by date...</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={filterDate}
-                                        onSelect={setFilterDate}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                            {filterDate && (
-                                <Button variant="ghost" size="icon" onClick={() => setFilterDate(undefined)}>
-                                    <X className="h-4 w-4" />
+        <div>
+            <header className="mb-8">
+                <h1 className="text-3xl font-bold text-neutral-900">Manage My Bookings</h1>
+                <p className="text-neutral-600 mt-1">Here are your past and upcoming bookings.</p>
+            </header>
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Bookings</CardTitle>
+                    <CardDescription>View your booking history and manage upcoming reservations.</CardDescription>
+                    <div className="flex items-center gap-2 pt-4">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant={"outline"} className="w-[280px] justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {filterDate ? format(filterDate, "PPP") : <span>Filter by date...</span>}
                                 </Button>
-                            )}
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Space</TableHead>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={filterDate}
+                                    onSelect={setFilterDate}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        {filterDate && (
+                            <Button variant="ghost" size="icon" onClick={() => setFilterDate(undefined)}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Space</TableHead>
+                                <TableHead>
+                                    <Button variant="ghost" onClick={() => requestSort('slotDateTime')}>
+                                        Slot Date & Time
+                                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </TableHead>
                                     <TableHead>
-                                        <Button variant="ghost" onClick={() => requestSort('slotDateTime')}>
-                                            Slot Date & Time
-                                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    </TableHead>
-                                     <TableHead>
-                                        <Button variant="ghost" onClick={() => requestSort('createdAt')}>
-                                            Booked On
-                                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    </TableHead>
-                                    <TableHead>Seats/Purpose</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Action</TableHead>
+                                    <Button variant="ghost" onClick={() => requestSort('createdAt')}>
+                                        Booked On
+                                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead>Seats/Purpose</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Action</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
-                                    </TableRow>
-                                ) : sortedAndFilteredBookings.length > 0 ? (
-                                    sortedAndFilteredBookings.map((booking) => {
-                                        const now = new Date();
-                                        const bookingStart = new Date(`${booking.date}T${booking.startTime}`);
-                                        const checkInWindowStart = subMinutes(bookingStart, 15);
-                                        const checkInWindowEnd = addMinutes(bookingStart, 15);
-                                        const showCheckIn = booking.spaceType === 'meetingRoom' &&
-                                                            booking.status === 'Confirmed' &&
-                                                            !booking.checkedIn &&
-                                                            isWithinInterval(now, { start: checkInWindowStart, end: checkInWindowEnd });
+                            ) : sortedAndFilteredBookings.length > 0 ? (
+                                sortedAndFilteredBookings.map((booking) => {
+                                    const now = new Date();
+                                    const bookingStart = new Date(`${booking.date}T${booking.startTime}`);
+                                    const checkInWindowStart = subMinutes(bookingStart, 15);
+                                    const checkInWindowEnd = addMinutes(bookingStart, 15);
+                                    const showCheckIn = booking.spaceType === 'meetingRoom' &&
+                                                        booking.status === 'Confirmed' &&
+                                                        !booking.checkedIn &&
+                                                        isWithinInterval(now, { start: checkInWindowStart, end: checkInWindowEnd });
 
-                                        return (
-                                        <TableRow key={booking.id}>
-                                            <TableCell className="font-medium">{booking.spaceName}</TableCell>
-                                            <TableCell>{booking.date} at {booking.startTime}</TableCell>
-                                            <TableCell>
-                                                {booking.createdAt instanceof Timestamp ? format(booking.createdAt.toDate(), "PPpp") : 'N/A'}
-                                            </TableCell>
-                                            <TableCell>{booking.seatCount || booking.purpose || 'N/A'}</TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col gap-1 items-start">
-                                                    <Badge 
-                                                        variant={
-                                                            booking.status === 'Confirmed' ? 'default' :
-                                                            booking.status === 'Cancelled' ? 'destructive' :
-                                                            'secondary'
-                                                        }
-                                                        className={
-                                                            booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' : ''
-                                                        }
-                                                    >
-                                                        {booking.status}
+                                    return (
+                                    <TableRow key={booking.id}>
+                                        <TableCell className="font-medium">{booking.spaceName}</TableCell>
+                                        <TableCell>{booking.date} at {booking.startTime}</TableCell>
+                                        <TableCell>
+                                            {booking.createdAt instanceof Timestamp ? format(booking.createdAt.toDate(), "PPpp") : 'N/A'}
+                                        </TableCell>
+                                        <TableCell>{booking.seatCount || booking.purpose || 'N/A'}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1 items-start">
+                                                <Badge 
+                                                    variant={
+                                                        booking.status === 'Confirmed' ? 'default' :
+                                                        booking.status === 'Cancelled' ? 'destructive' :
+                                                        'secondary'
+                                                    }
+                                                    className={
+                                                        booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' : ''
+                                                    }
+                                                >
+                                                    {booking.status}
+                                                </Badge>
+                                                {booking.status === 'Confirmed' && booking.spaceType === 'meetingRoom' && (
+                                                    <Badge variant={booking.checkedIn ? "default" : "secondary"} className={booking.checkedIn ? 'bg-blue-100 text-blue-800' : ''}>
+                                                        {booking.checkedIn ? "Checked-In" : "Not Checked-In"}
                                                     </Badge>
-                                                    {booking.status === 'Confirmed' && booking.spaceType === 'meetingRoom' && (
-                                                        <Badge variant={booking.checkedIn ? "default" : "secondary"} className={booking.checkedIn ? 'bg-blue-100 text-blue-800' : ''}>
-                                                            {booking.checkedIn ? "Checked-In" : "Not Checked-In"}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {showCheckIn && (
-                                                    <Button variant="default" size="sm" onClick={() => handleCheckIn(booking.id)}>
-                                                        Check-In
-                                                    </Button>
                                                 )}
-                                                {booking.status === 'Confirmed' && !showCheckIn && (
-                                                    <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)} disabled={bookingStart < now}>
-                                                        Cancel
-                                                    </Button>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    )})
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">
-                                            You have no bookings for the selected criteria.
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {showCheckIn && (
+                                                <Button variant="default" size="sm" onClick={() => handleCheckIn(booking.id)}>
+                                                    Check-In
+                                                </Button>
+                                            )}
+                                            {booking.status === 'Confirmed' && !showCheckIn && (
+                                                <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)} disabled={bookingStart < now}>
+                                                    Cancel
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </main>
+                                )})
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center">
+                                        You have no bookings for the selected criteria.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
     );
 }
