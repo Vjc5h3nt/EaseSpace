@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Suspense } from 'react';
@@ -18,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type BookingsForSlot = {
     [tableId: string]: {
@@ -366,5 +365,3 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
-
-    
