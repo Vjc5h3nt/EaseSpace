@@ -100,7 +100,6 @@ export default function SettingsPage() {
             const updates: Partial<User> = {
                 fullName: displayName,
                 photoURL: finalPhotoURL,
-                employeeId: employeeId,
                 mobileNumber: mobileNumber,
             };
             
@@ -171,7 +170,8 @@ export default function SettingsPage() {
                             <Input 
                                 id="employeeId" 
                                 value={employeeId} 
-                                onChange={(e) => setEmployeeId(e.target.value)} 
+                                readOnly 
+                                disabled
                             />
                         </div>
                         <div className="space-y-2">

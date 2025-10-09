@@ -107,7 +107,6 @@ export default function UserProfilePage() {
              const updates: Partial<User> = {
                 fullName: displayName,
                 photoURL: finalPhotoURL,
-                employeeId: employeeId,
                 mobileNumber: mobileNumber
             };
             
@@ -219,7 +218,7 @@ export default function UserProfilePage() {
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="employeeId">Employee ID</Label>
-                                <Input id="employeeId" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
+                                <Input id="employeeId" value={employeeId} readOnly disabled />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="mobileNumber">Mobile Number</Label>
@@ -234,6 +233,7 @@ export default function UserProfilePage() {
                         <Button onClick={handleSaveChanges} disabled={isSaving}>
                             {isSaving ? 'Saving...' : 'Save Changes'}
                         </Button>
+                        <p className="text-xs italic text-red-600">Please contact Admin to change any non editable field values.</p>
                     </CardContent>
                 </Card>
             </main>
