@@ -23,6 +23,8 @@ const formSchema = z.object({
   adminFullName: z.string().min(1, { message: "Full name is required" }),
   adminEmail: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  employeeId: z.string().min(1, { message: "Employee ID is required" }),
+  mobileNumber: z.string().optional(),
 });
 
 export default function SignupPage() {
@@ -40,6 +42,8 @@ export default function SignupPage() {
       adminFullName: "",
       adminEmail: "",
       password: "",
+      employeeId: "",
+      mobileNumber: "",
     },
   });
 
@@ -84,6 +88,8 @@ export default function SignupPage() {
         org_id: org_id,
         fullName: values.adminFullName,
         email: values.adminEmail,
+        employeeId: values.employeeId,
+        mobileNumber: values.mobileNumber || "",
         role: "admin", // Assign admin role
         status: 'active', // Admins are active by default
         onboardingComplete: false,
@@ -189,6 +195,28 @@ export default function SignupPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl><Input type="password" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="employeeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Employee ID</FormLabel>
+                    <FormControl><Input placeholder="e.g. 12345" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="mobileNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number (Optional)</FormLabel>
+                    <FormControl><Input placeholder="e.g. 9876543210" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -16,7 +16,6 @@ import type { User, Organization } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function UserProfilePage() {
     const router = useRouter();
@@ -108,14 +107,9 @@ export default function UserProfilePage() {
              const updates: Partial<User> = {
                 fullName: displayName,
                 photoURL: finalPhotoURL,
+                employeeId: employeeId,
+                mobileNumber: mobileNumber
             };
-
-            if (!user.mobileNumber && mobileNumber) {
-                updates.mobileNumber = mobileNumber;
-            }
-             if (!user.employeeId && employeeId) {
-                updates.employeeId = employeeId;
-            }
             
             await updateProfile(auth.currentUser, { 
                 displayName: displayName,
@@ -154,9 +148,6 @@ export default function UserProfilePage() {
     if (!user) {
         return <div className="flex justify-center items-center h-screen">No user data found. Redirecting to login...</div>;
     }
-    
-    const canEditMobile = !user.mobileNumber;
-    const canEditEmployeeId = !user.employeeId;
 
     return (
         <div className="flex h-screen bg-neutral-50">
@@ -228,23 +219,17 @@ export default function UserProfilePage() {
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="employeeId">Employee ID</Label>
-                                <Input id="employeeId" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} readOnly={!canEditEmployeeId} disabled={!canEditEmployeeId} />
+                                <Input id="employeeId" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="mobileNumber">Mobile Number</Label>
-                                <Input id="mobileNumber" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} readOnly={!canEditMobile} disabled={!canEditMobile} />
+                                <Input id="mobileNumber" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="orgName">Organization</Label>
                                 <Input id="orgName" value={organizationName} readOnly disabled />
                             </div>
                         </div>
-
-                         <Alert>
-                            <AlertDescription className="text-destructive italic">
-                            To edit fields that are locked, please contact your organization's administrator.
-                            </AlertDescription>
-                        </Alert>
                         
                         <Button onClick={handleSaveChanges} disabled={isSaving}>
                             {isSaving ? 'Saving...' : 'Save Changes'}

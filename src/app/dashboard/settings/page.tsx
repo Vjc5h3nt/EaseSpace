@@ -100,16 +100,10 @@ export default function SettingsPage() {
             const updates: Partial<User> = {
                 fullName: displayName,
                 photoURL: finalPhotoURL,
+                employeeId: employeeId,
+                mobileNumber: mobileNumber,
             };
-
-            // Only update if the field was previously empty
-            if (!user.mobileNumber && mobileNumber) {
-                updates.mobileNumber = mobileNumber;
-            }
-             if (!user.employeeId && employeeId) {
-                updates.employeeId = employeeId;
-            }
-
+            
             await updateProfile(auth.currentUser, {
                 displayName: displayName,
                 photoURL: finalPhotoURL
@@ -117,7 +111,7 @@ export default function SettingsPage() {
             
             await updateDoc(userDocRef, updates);
 
-            // Update local state to reflect changes and lock fields
+            // Update local state to reflect changes
             setUser(prev => ({...prev!, ...updates}));
             setProfilePicUrl(finalPhotoURL);
 
@@ -134,9 +128,6 @@ export default function SettingsPage() {
     if (!user) {
         return <div>Loading...</div>;
     }
-
-    const canEditMobile = !user.mobileNumber;
-    const canEditEmployeeId = !user.employeeId;
 
     return (
         <div className="flex flex-col gap-8">
@@ -181,8 +172,6 @@ export default function SettingsPage() {
                                 id="employeeId" 
                                 value={employeeId} 
                                 onChange={(e) => setEmployeeId(e.target.value)} 
-                                readOnly={!canEditEmployeeId} 
-                                disabled={!canEditEmployeeId}
                             />
                         </div>
                         <div className="space-y-2">
@@ -191,8 +180,6 @@ export default function SettingsPage() {
                                 id="mobileNumber" 
                                 value={mobileNumber} 
                                 onChange={(e) => setMobileNumber(e.target.value)} 
-                                readOnly={!canEditMobile} 
-                                disabled={!canEditMobile}
                             />
                         </div>
                          <div className="space-y-2">
@@ -200,12 +187,6 @@ export default function SettingsPage() {
                             <Input id="orgName" value={organizationName} readOnly disabled />
                         </div>
                     </div>
-                    
-                     <Alert>
-                        <AlertDescription className="text-destructive italic">
-                          To edit fields that are locked, please contact your organization's administrator.
-                        </AlertDescription>
-                    </Alert>
 
                      <Button onClick={handleSaveChanges} disabled={isSaving}>
                         {isSaving ? 'Saving...' : 'Save Changes'}

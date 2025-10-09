@@ -25,6 +25,8 @@ const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   orgId: z.string({ required_error: "Please select an organization." }),
+  employeeId: z.string().min(1, { message: "Employee ID is required" }),
+  mobileNumber: z.string().optional(),
 });
 
 export default function UserSignupPage() {
@@ -52,6 +54,8 @@ export default function UserSignupPage() {
       fullName: "",
       email: "",
       password: "",
+      employeeId: "",
+      mobileNumber: "",
     },
   });
 
@@ -72,6 +76,8 @@ export default function UserSignupPage() {
         org_id: values.orgId,
         fullName: values.fullName,
         email: values.email,
+        employeeId: values.employeeId,
+        mobileNumber: values.mobileNumber || "",
         role: "user",
         status: "pending", // User starts as pending, admin must approve.
       });
@@ -168,6 +174,28 @@ export default function UserSignupPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl><Input type="password" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="employeeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Employee ID</FormLabel>
+                    <FormControl><Input placeholder="e.g. 12345" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="mobileNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number (Optional)</FormLabel>
+                    <FormControl><Input placeholder="e.g. 9876543210" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
