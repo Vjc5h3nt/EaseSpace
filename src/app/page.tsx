@@ -9,19 +9,20 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="px-4 lg:px-6 h-16 flex items-center border-b">
-        <Link href="#" className="flex items-center justify-center" prefetch={false}>
+        <Link href="#" className="flex items-center justify-center gap-2" prefetch={false}>
           <Logo className="h-6 w-6 text-primary" />
-          <span className="sr-only">EaseSpace</span>
+          <span className="text-lg font-bold">EaseSpace</span>
         </Link>
-        <span className="ml-3 text-lg font-bold font-headline">EaseSpace</span>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
-           <Link
-            href="/login"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            prefetch={false}
-          >
-            User Login
-          </Link>
+        <nav className="ml-auto flex items-center gap-4 sm:gap-6">
+           <Button variant="ghost" asChild>
+            <Link
+              href="/login"
+              className="text-sm font-medium hover:underline underline-offset-4"
+              prefetch={false}
+            >
+              User Login
+            </Link>
+          </Button>
           <Button asChild>
             <Link href="/signup">Admin Onboarding</Link>
           </Button>
@@ -33,7 +34,7 @@ export default function Home() {
             <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
               <div className="flex flex-col justify-center space-y-6">
                 <div className="space-y-4">
-                  <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline text-foreground">
+                  <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none text-foreground">
                     The Smart Way to Manage Your Workspace
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
@@ -53,12 +54,12 @@ export default function Home() {
                 </p>
               </div>
                <Image
-                src="https://picsum.photos/seed/hero/1200/800"
+                src="https://picsum.photos/seed/office/1200/800"
                 width="600"
                 height="400"
-                alt="Hero"
+                alt="Modern office interior with collaborative spaces"
                 className="mx-auto aspect-video overflow-hidden rounded-xl object-cover sm:w-full lg:order-last lg:aspect-square"
-                data-ai-hint="modern office interior"
+                data-ai-hint="modern office"
               />
             </div>
           </div>
@@ -71,42 +72,57 @@ export default function Home() {
                 <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm text-primary font-medium">
                   Key Features
                 </div>
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl font-headline">Everything You Need for a Smarter Workplace</h2>
+                <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl mb-4">Everything You Need for a Smarter Workplace</h2>
                 <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
                   From AI-powered scheduling to in-depth analytics, EaseSpace provides the tools to create an efficient and productive office environment.
                 </p>
               </div>
             </div>
             <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 mt-12">
-              <div className="grid gap-1 text-center">
+              <div className="grid gap-2 text-center">
                  <div className="flex justify-center items-center mb-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-primary">
-                        <Briefcase className="w-8 h-8" />
-                    </div>
+                    <Image
+                      src="https://picsum.photos/seed/dashboard/400/300"
+                      width="400"
+                      height="300"
+                      alt="Admin dashboard showing charts and stats"
+                      className="rounded-lg object-cover aspect-video"
+                      data-ai-hint="data analytics dashboard"
+                    />
                 </div>
-                <h3 className="text-xl font-bold font-headline">Admin Command Center</h3>
+                <h3 className="text-xl font-bold">Admin Command Center</h3>
                 <p className="text-sm text-muted-foreground">
                   A comprehensive overview of all bookings, user activity, and space utilization in one place.
                 </p>
               </div>
-              <div className="grid gap-1 text-center">
+              <div className="grid gap-2 text-center">
                  <div className="flex justify-center items-center mb-4">
-                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-primary">
-                        <Bot className="w-8 h-8" />
-                    </div>
+                    <Image
+                      src="https://picsum.photos/seed/chatbot/400/300"
+                      width="400"
+                      height="300"
+                      alt="AI chatbot interface for booking"
+                      className="rounded-lg object-cover aspect-video"
+                      data-ai-hint="AI chatbot interface"
+                    />
                 </div>
-                <h3 className="text-xl font-bold font-headline">AI-Powered Booking</h3>
+                <h3 className="text-xl font-bold">AI-Powered Booking</h3>
                 <p className="text-sm text-muted-foreground">
                   Users and admins can interact with our smart AI chatbot to make bookings and get insights using natural language.
                 </p>
               </div>
-              <div className="grid gap-1 text-center">
+              <div className="grid gap-2 text-center">
                 <div className="flex justify-center items-center mb-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-primary">
-                        <BarChart className="w-8 h-8" />
-                    </div>
+                   <Image
+                      src="https://picsum.photos/seed/charts/400/300"
+                      width="400"
+                      height="300"
+                      alt="Utilization charts and graphs"
+                      className="rounded-lg object-cover aspect-video"
+                      data-ai-hint="utilization charts graphs"
+                    />
                 </div>
-                <h3 className="text-xl font-bold font-headline">Utilization Analytics</h3>
+                <h3 className="text-xl font-bold">Utilization Analytics</h3>
                 <p className="text-sm text-muted-foreground">
                   Visualize booking data with intuitive charts to optimize your space allocation and resource management.
                 </p>
@@ -127,7 +143,7 @@ export default function Home() {
                     <nav className="flex flex-col gap-2">
                         <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Features</Link>
                         <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Pricing</Link>
-                         <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Login</Link>
+                         <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">Login</Link>
                     </nav>
                 </div>
                 <div>

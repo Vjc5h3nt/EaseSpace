@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Segoe UI', sans-serif;
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%; /* White */
+    --background: 240 10% 99%; /* Very Light Gray, almost white */
     --foreground: 224 71% 4%; /* Dark Blue-Gray */
 
     --card: 0 0% 100%;
@@ -17,7 +17,7 @@ body {
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
 
-    --primary: 262 84% 53%; /* A professional, modern purple */
+    --primary: 221 83% 53%; /* A professional, saturated blue */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 240 5% 96%; /* Light Gray */
@@ -26,15 +26,15 @@ body {
     --muted: 240 5% 96%;
     --muted-foreground: 220 9% 46%; /* Gray */
 
-    --accent: 34 97% 62%; /* A vibrant orange for highlights and secondary CTAs */
-    --accent-foreground: 224 71% 4%;
+    --accent: 142 76% 36%; /* A contrasting vibrant green for success/availability */
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 240 6% 90%;
     --input: 240 6% 90%;
-    --ring: 262 84% 53%; /* Ring color matches new primary */
+    --ring: 221 83% 53%; /* Ring color matches new primary */
 
     --radius: 0.5rem;
   }
