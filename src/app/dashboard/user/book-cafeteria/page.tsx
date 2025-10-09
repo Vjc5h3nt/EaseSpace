@@ -10,7 +10,7 @@ import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, ArrowLeft, Users, Clock, CheckCircle2, XCircle, UserCheck, Eye, LayoutGrid } from "lucide-react";
+import { Calendar as CalendarIcon, ArrowLeft, Users, Clock, CheckCircle2, XCircle, UserCheck, Eye, LayoutGrid, Table as TableIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, isBefore, startOfToday, addDays, isSameDay } from 'date-fns';
@@ -19,7 +19,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CafeteriaLayoutEditor } from '@/components/cafeteria-layout-editor';
 
 
 type BookingsForSlot = {
@@ -224,10 +223,10 @@ function CafeteriaBookingComponent() {
     if (loading) return <div className="flex justify-center items-center h-full">Loading...</div>;
     if (!cafeteria) return <div className="flex justify-center items-center h-full">Could not load cafeteria.</div>;
 
-    const getTableCardColor = (availableSeats: number) => {
-        if (availableSeats === 0) return 'bg-red-50 text-red-700';
-        if (availableSeats <= 2) return 'bg-orange-50 text-orange-700';
-        return 'bg-green-50 text-green-700';
+    const getTableColorClass = (availableSeats: number) => {
+        if (availableSeats === 0) return 'bg-red-500/80 text-white border-red-600';
+        if (availableSeats <= 2) return 'bg-orange-400/80 text-white border-orange-500';
+        return 'bg-green-500/80 text-white border-green-600';
     };
 
     return (
@@ -306,17 +305,15 @@ function CafeteriaBookingComponent() {
                             const isFull = availableSeats <= 0;
                             const userHasBooking = bookingInfo?.userHasBooking || false;
 
-                            const cardColorClass = getTableCardColor(availableSeats);
-
                             return (
                                 <Card 
                                     key={table.id}
                                     className={cn(
                                         "transition-all hover:shadow-lg",
-                                        isFull && !userHasBooking ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+                                        isFull && !userHasBooking ? "cursor-not-allowed opacity-70 bg-red-50 text-red-700" : "cursor-pointer",
                                         userHasBooking && "ring-2 ring-primary",
-                                        cardColorClass,
-                                        "border"
+                                        !isFull && availableSeats > 2 && "bg-green-50 text-green-700",
+                                        !isFull && availableSeats <= 2 && "bg-orange-50 text-orange-700",
                                     )}
                                     onClick={() => !isFull && handleTableClick(table)}
                                 >
@@ -341,9 +338,32 @@ function CafeteriaBookingComponent() {
                         })}
                     </div>
                 ) : (
-                     <div className="relative w-full h-[500px] rounded-lg border bg-muted/20">
+                     <div className="relative w-full h-[600px] rounded-lg border bg-muted/20 overflow-hidden">
                         {cafeteria.layout.length > 0 ? (
-                           <p className="text-center text-muted-foreground absolute inset-0 flex items-center justify-center">Layout View coming soon.</p>
+                           cafeteria.layout.map((table) => {
+                                const bookingInfo = bookingsBySlot[table.id];
+                                const bookedSeats = bookingInfo?.bookedSeats || 0;
+                                const availableSeats = 4 - bookedSeats;
+                                const isFull = availableSeats <= 0;
+                                const userHasBooking = bookingInfo?.userHasBooking || false;
+
+                                return (
+                                    <div
+                                        key={table.id}
+                                        onClick={() => !isFull && handleTableClick(table)}
+                                        className={cn(
+                                            'absolute w-14 h-14 flex flex-col items-center justify-center rounded-md border-2 transition-all',
+                                            isFull && !userHasBooking ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:scale-110",
+                                            userHasBooking && "ring-2 ring-primary",
+                                            getTableColorClass(availableSeats)
+                                        )}
+                                        style={{ left: table.x, top: table.y }}
+                                    >
+                                        <TableIcon className="w-5 h-5" />
+                                        <span className="text-xs font-bold">T{table.id.split('-')[1]}</span>
+                                    </div>
+                                )
+                           })
                         ) : (
                            <p className="text-center text-muted-foreground absolute inset-0 flex items-center justify-center">No layout defined for this cafeteria.</p>
                         )}
@@ -398,3 +418,4 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
+
