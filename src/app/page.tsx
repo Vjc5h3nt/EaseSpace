@@ -70,6 +70,9 @@ export default function Home() {
                 </p>
               </div>
                <Carousel
+                    opts={{
+                        loop: true,
+                    }}
                     plugins={[plugin.current]}
                     className="w-full"
                     onMouseEnter={plugin.current.stop}
