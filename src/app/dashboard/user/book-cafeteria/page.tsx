@@ -352,15 +352,20 @@ function CafeteriaBookingComponent() {
                                         key={table.id}
                                         onClick={() => !isFull && handleTableClick(table)}
                                         className={cn(
-                                            'absolute w-14 h-14 flex flex-col items-center justify-center rounded-md border-2 transition-all',
-                                            isFull && !userHasBooking ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:scale-110",
-                                            userHasBooking && "ring-2 ring-primary",
-                                            getTableColorClass(availableSeats)
+                                            'absolute flex flex-col items-center group',
+                                            isFull && !userHasBooking ? "cursor-not-allowed" : "cursor-pointer"
                                         )}
                                         style={{ left: table.x, top: table.y }}
                                     >
-                                        <TableIcon className="w-5 h-5" />
-                                        <span className="text-xs font-bold">T{table.id.split('-')[1]}</span>
+                                        <div className={cn(
+                                            'w-14 h-14 flex items-center justify-center rounded-md border-2 transition-all',
+                                            isFull && !userHasBooking ? "opacity-70" : "hover:scale-110",
+                                            userHasBooking && "ring-2 ring-primary",
+                                            getTableColorClass(availableSeats)
+                                        )}>
+                                            <TableIcon className="w-5 h-5" />
+                                        </div>
+                                        <span className="text-xs font-bold text-black mt-1">T{table.id.split('-')[1]}</span>
                                     </div>
                                 )
                            })
