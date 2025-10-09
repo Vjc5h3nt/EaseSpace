@@ -19,9 +19,7 @@ const nextConfig: NextConfig = {
       },
        {
         protocol: "https",
-        hostname: process.env.CLOUDFLARE_R2_PUBLIC_URL
-          ? new URL(process.env.CLOUDFLARE_R2_PUBLIC_URL).hostname
-          : "",
+        hostname: "pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev",
         port: "",
         pathname: "/**",
       },

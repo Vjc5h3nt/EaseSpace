@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -30,10 +31,10 @@ export default function Home() {
       <main className="flex-1">
         <section className="w-full py-12 md:py-20 lg:py-24">
           <div className="container px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 xl:gap-16">
+            <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-2">
-                  <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-foreground">
+                  <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl xl:text-5xl/none text-foreground">
                     The Smart Way to Manage Your Workspace
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
@@ -52,16 +53,14 @@ export default function Home() {
                     For employees and admins. No credit card required.
                 </p>
               </div>
-              <div className="flex items-center justify-center">
-                 <Image
-                    src="https://picsum.photos/seed/office/600/400"
-                    width="600"
-                    height="400"
-                    alt="Modern office interior with collaborative spaces"
-                    className="mx-auto aspect-video overflow-hidden rounded-xl object-cover"
-                    data-ai-hint="modern office"
-                  />
-              </div>
+              <Image
+                src="https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/main1.png"
+                width="600"
+                height="400"
+                alt="Modern office interior with collaborative spaces"
+                className="mx-auto aspect-video overflow-hidden rounded-xl object-cover"
+                data-ai-hint="modern office meeting room"
+              />
             </div>
           </div>
         </section>
@@ -83,7 +82,7 @@ export default function Home() {
               <div className="grid gap-2 text-center">
                  <div className="flex justify-center items-center mb-4">
                     <Image
-                      src="https://picsum.photos/seed/dashboard/400/300"
+                      src="https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/sub2%20-%20admin.png"
                       width="400"
                       height="300"
                       alt="Admin dashboard showing charts and stats"
@@ -99,7 +98,7 @@ export default function Home() {
               <div className="grid gap-2 text-center">
                  <div className="flex justify-center items-center mb-4">
                     <Image
-                      src="https://picsum.photos/seed/chatbot/400/300"
+                      src="https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/sub1%20-%20ai.png"
                       width="400"
                       height="300"
                       alt="AI chatbot interface for booking"
@@ -115,7 +114,7 @@ export default function Home() {
               <div className="grid gap-2 text-center">
                 <div className="flex justify-center items-center mb-4">
                    <Image
-                      src="https://picsum.photos/seed/charts/400/300"
+                      src="https://pub-3b4d54024e6641ff9fc45c4bc3e84878.r2.dev/sub3%20-%20utilz.png"
                       width="400"
                       height="300"
                       alt="Utilization charts and graphs"
