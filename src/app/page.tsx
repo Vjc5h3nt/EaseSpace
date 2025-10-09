@@ -168,7 +168,7 @@ export default function Home() {
       </main>
       <footer className="bg-background border-t">
         <div className="container mx-auto py-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
                 <div>
                      <h3 className="font-semibold text-foreground mb-4">EaseSpace</h3>
                      <p className="text-sm text-muted-foreground">&copy; 2024 EaseSpace Inc. <br/>All rights reserved.</p>
