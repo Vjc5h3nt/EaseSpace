@@ -9,7 +9,7 @@ import { useAuth, useFirestore } from '@/firebase';
 import type { MeetingRoom, Booking, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar as CalendarIcon, Clock, Users, Briefcase, User as UserIcon, Building, Phone, Eye, Info } from 'lucide-react';
+import { ArrowLeft, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
 
 type EnrichedBooking = Booking & { userName?: string };
 
@@ -46,6 +48,7 @@ function MeetingRoomBookingComponent() {
     const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
     const [eventToShow, setEventToShow] = useState<EnrichedBooking | null>(null);
+    const [roomForDetails, setRoomForDetails] = useState<MeetingRoom | null>(null);
 
     // Form State
     const [bookingDate, setBookingDate] = useState<Date | undefined>();
@@ -123,10 +126,9 @@ function MeetingRoomBookingComponent() {
     const calendarEvents = useMemo((): EventInput[] => {
         const getColor = (status: Booking['status']) => {
             switch (status) {
-                case 'Confirmed': return 'rgba(34, 197, 94, 0.8)';
-                case 'Requires Approval': return 'rgba(59, 130, 246, 0.8)';
-                // Cancelled bookings are filtered out, so no color is needed.
-                default: return 'rgba(107, 114, 128, 0.8)';
+                case 'Confirmed': return '#10B981'; // Green-500
+                case 'Requires Approval': return '#3B82F6'; // Blue-500
+                default: return '#6B7280'; // Gray-500
             }
         };
 
@@ -192,7 +194,6 @@ function MeetingRoomBookingComponent() {
         const newBookingEnd = new Date(`${format(bookingDate, 'yyyy-MM-dd')}T${endTime}`).getTime();
 
         const hasConflict = bookings.some(b => {
-            // Only check for conflicts with Confirmed or Pending bookings
             if (b.status === 'Cancelled') return false; 
             const existingStart = new Date(`${b.date}T${b.startTime}`).getTime();
             const existingEnd = new Date(`${b.date}T${b.endTime}`).getTime();
@@ -251,11 +252,6 @@ function MeetingRoomBookingComponent() {
                 title = "Booking Request Pending";
                 description = `This slot is requested by ${eventToShow.userName || 'a user'} and is pending approval.`;
                 break;
-            case 'Cancelled':
-                // This case should no longer be triggered from the calendar view
-                title = "Booking Cancelled";
-                description = "This booking has been cancelled.";
-                break;
             default:
                 description = "This time slot has already been requested.";
         }
@@ -264,9 +260,7 @@ function MeetingRoomBookingComponent() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>{title}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {description}
-                    </AlertDialogDescription>
+                    <AlertDialogDescription>{description}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-2 text-sm">
                     <p><strong>Purpose:</strong> {eventToShow.purpose}</p>
@@ -290,33 +284,35 @@ function MeetingRoomBookingComponent() {
                         <CardTitle>Meeting Rooms</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ScrollArea className="h-[calc(100vh-200px)]">
-                            <div className="space-y-2">
+                        <ScrollArea className="h-[calc(100vh-12rem)]">
+                            <div className="space-y-2 pr-4">
                                 {rooms.map(room => (
                                     <div 
                                         key={room.id} 
                                         className={cn(
-                                            "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors",
-                                            selectedRoom?.id === room.id ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                                            "p-3 rounded-lg border cursor-pointer transition-all shadow-sm hover:shadow-md",
+                                            selectedRoom?.id === room.id ? "bg-primary text-primary-foreground shadow-lg" : "bg-card hover:bg-accent"
                                         )}
                                         onClick={() => setSelectedRoom(room)}
                                     >
-                                        <div>
-                                            <p className="font-semibold">{room.name}</p>
-                                            <p className="text-sm opacity-80">Capacity: {room.capacity}</p>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="font-semibold">{room.name}</p>
+                                                <p className={cn("text-sm", selectedRoom?.id === room.id ? "text-primary-foreground/80" : "text-muted-foreground")}>Capacity: {room.capacity}</p>
+                                            </div>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className={cn("h-8 w-8", selectedRoom?.id === room.id ? "hover:bg-primary/80" : "hover:bg-accent")}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setRoomForDetails(room);
+                                                    setIsDetailsDialogOpen(true);
+                                                }}
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
                                         </div>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className={cn("hover:bg-primary/10", selectedRoom?.id === room.id && "hover:bg-primary/80")}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedRoom(room);
-                                                setIsDetailsDialogOpen(true);
-                                            }}
-                                        >
-                                            <Eye className="h-4 w-4" />
-                                        </Button>
                                     </div>
                                 ))}
                             </div>
@@ -327,11 +323,11 @@ function MeetingRoomBookingComponent() {
             <main className="flex-1 p-6 overflow-hidden">
                 {selectedRoom ? (
                     <div className="h-full">
-                    <BookingCalendar
-                        events={calendarEvents}
-                        onDateSelect={handleDateSelect}
-                        onEventClick={handleEventClick}
-                    />
+                        <BookingCalendar
+                            events={calendarEvents}
+                            onDateSelect={handleDateSelect}
+                            onEventClick={handleEventClick}
+                        />
                     </div>
                 ) : (
                     <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -340,7 +336,6 @@ function MeetingRoomBookingComponent() {
                 )}
             </main>
 
-            {/* Booking Dialog */}
             <AlertDialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -388,30 +383,28 @@ function MeetingRoomBookingComponent() {
                 </AlertDialogContent>
             </AlertDialog>
             
-            {/* Details Dialog */}
-            {selectedRoom && (
-                <AlertDialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>{selectedRoom.name}</AlertDialogTitle>
-                             <AlertDialogDescription>Capacity: {selectedRoom.capacity} people</AlertDialogDescription>
-                        </AlertDialogHeader>
+             <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+                {roomForDetails && (
+                    <DialogContent className="sm:max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>{roomForDetails.name}</DialogTitle>
+                             <DialogDescription>Capacity: {roomForDetails.capacity} people</DialogDescription>
+                        </DialogHeader>
                         <div className="my-4">
-                            <Carousel className="w-full max-w-xs mx-auto">
+                            <Carousel className="w-full max-w-lg mx-auto">
                                 <CarouselContent>
-                                    {selectedRoom.imageUrls && selectedRoom.imageUrls.length > 0 ? (
-                                        selectedRoom.imageUrls.map((url, index) => (
+                                    {roomForDetails.imageUrls && roomForDetails.imageUrls.length > 0 ? (
+                                        roomForDetails.imageUrls.map((url, index) => (
                                             <CarouselItem key={index}>
                                                 <div className="p-1">
                                                     <Card>
-                                                        <CardContent className="flex aspect-square items-center justify-center p-0">
+                                                        <CardContent className="flex aspect-video items-center justify-center p-0">
                                                             <Image
                                                                 src={url}
-                                                                alt={`${selectedRoom.name} image ${index + 1}`}
+                                                                alt={`${roomForDetails.name} image ${index + 1}`}
                                                                 width={600}
                                                                 height={400}
                                                                 className="rounded-lg object-cover w-full h-full"
-                                                                data-ai-hint="meeting room"
                                                             />
                                                         </CardContent>
                                                     </Card>
@@ -422,8 +415,8 @@ function MeetingRoomBookingComponent() {
                                         <CarouselItem>
                                              <div className="p-1">
                                                 <Card>
-                                                    <CardContent className="flex aspect-square items-center justify-center p-6 bg-muted rounded-lg">
-                                                        <span className="text-muted-foreground">No Image</span>
+                                                    <CardContent className="flex aspect-video items-center justify-center p-6 bg-muted rounded-lg">
+                                                        <span className="text-muted-foreground">No Image Available</span>
                                                     </CardContent>
                                                 </Card>
                                             </div>
@@ -437,32 +430,27 @@ function MeetingRoomBookingComponent() {
                          <div className="mt-4">
                              <h3 className="font-semibold mb-2">Amenities</h3>
                              <div className="flex flex-wrap gap-2">
-                                 {selectedRoom.amenities.map(a => (
-                                     <Badge key={a} variant="secondary" className="transition-colors hover:bg-primary/20">{a}</Badge>
+                                 {roomForDetails.amenities.map(a => (
+                                     <Badge key={a} variant="secondary">{a}</Badge>
                                  ))}
                              </div>
                          </div>
-                        <AlertDialogFooter>
-                            <AlertDialogAction onClick={() => setIsDetailsDialogOpen(false)}>Close</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            )}
+                    </DialogContent>
+                )}
+            </Dialog>
 
-            {/* Info Dialog */}
             {eventToShow && (
                 <AlertDialog open={isInfoDialogOpen} onOpenChange={() => {setIsInfoDialogOpen(false); setEventToShow(null)}}>
                     <InfoDialogContent />
                 </AlertDialog>
             )}
 
-             {/* Conflict Dialog */}
              <AlertDialog open={isConflictDialogOpen} onOpenChange={setIsConflictDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Booking Conflict</AlertDialogTitle>
                         <AlertDialogDescription>
-                           This time slot overlaps with an existing confirmed booking. Please choose a different time.
+                           This time slot overlaps with an existing booking. Please choose a different time.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
