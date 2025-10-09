@@ -62,7 +62,7 @@ export default function Home() {
                      <Link href="/login">Get Started <ArrowRight className="ml-2 h-5 w-5" /></Link>
                   </Button>
                   <Button asChild variant="outline" size="lg">
-                    <Link href="/signup">Request a Demo</Link>
+                    <Link href="/request-demo">Request a Demo</Link>
                   </Button>
                 </div>
                  <p className="text-xs text-muted-foreground">
