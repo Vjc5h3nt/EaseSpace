@@ -10,15 +10,17 @@ import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, ArrowLeft, Users, Clock, CheckCircle2, XCircle, UserCheck } from "lucide-react";
+import { Calendar as CalendarIcon, ArrowLeft, Users, Clock, CheckCircle2, XCircle, UserCheck, Eye, LayoutGrid } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, isBefore, startOfToday } from 'date-fns';
+import { format, isBefore, startOfToday, addDays, isSameDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CafeteriaLayoutEditor } from '@/components/cafeteria-layout-editor';
+
 
 type BookingsForSlot = {
     [tableId: string]: {
@@ -26,6 +28,8 @@ type BookingsForSlot = {
         userHasBooking: boolean;
     };
 }
+
+type ViewMode = 'grid' | 'layout';
 
 function CafeteriaBookingComponent() {
     const router = useRouter();
@@ -49,8 +53,12 @@ function CafeteriaBookingComponent() {
     const [userTotalBookedSeats, setUserTotalBookedSeats] = useState(0);
 
     const [user, setUser] = useState<{uid: string, org_id: string} | null>(null);
+    const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
     const timeSlots = ["11:00 - 12:00", "12:00 - 13:00", "13:00 - 14:00"];
+    const today = startOfToday();
+    const tomorrow = addDays(today, 1);
+
 
     useEffect(() => {
       if (!auth) return;
@@ -249,7 +257,7 @@ function CafeteriaBookingComponent() {
                                         mode="single" 
                                         selected={bookingDate} 
                                         onSelect={setBookingDate} 
-                                        disabled={(date) => isBefore(date, startOfToday()) || isBefore(date, new Date('1900-01-01'))}
+                                        disabled={(date) => !isSameDay(date, today) && !isSameDay(date, tomorrow)}
                                         initialFocus 
                                     />
                                 </PopoverContent>
@@ -276,14 +284,20 @@ function CafeteriaBookingComponent() {
             </Card>
 
             <div>
-                <h2 className="text-xl font-semibold tracking-tight mb-4">3. Choose a Table</h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold tracking-tight">3. Choose a Table</h2>
+                     <Button variant="outline" onClick={() => setViewMode(viewMode === 'grid' ? 'layout' : 'grid')}>
+                        {viewMode === 'grid' ? <Eye className="mr-2 h-4 w-4" /> : <LayoutGrid className="mr-2 h-4 w-4" />}
+                        {viewMode === 'grid' ? 'View Layout' : 'View Grid'}
+                    </Button>
+                </div>
                 {!timeSlot ? (
                     <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 h-64 text-center p-4">
                         <Clock className="h-10 w-10 text-muted-foreground mb-3" />
                         <h3 className="text-lg font-semibold text-foreground">Select a Time Slot</h3>
                         <p className="text-muted-foreground text-sm">Please select a time to view table availability.</p>
                     </div>
-                ) : (
+                ) : viewMode === 'grid' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {cafeteria.layout.map((table) => {
                             const bookingInfo = bookingsBySlot[table.id];
@@ -300,7 +314,7 @@ function CafeteriaBookingComponent() {
                                     className={cn(
                                         "transition-all hover:shadow-lg",
                                         isFull && !userHasBooking ? "cursor-not-allowed opacity-70" : "cursor-pointer",
-                                        userHasBooking && "ring-2 ring-blue-500",
+                                        userHasBooking && "ring-2 ring-primary",
                                         cardColorClass,
                                         "border"
                                     )}
@@ -309,7 +323,7 @@ function CafeteriaBookingComponent() {
                                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                                         <CardTitle className="text-lg font-bold">Table {table.id.split('-')[1]}</CardTitle>
                                         {userHasBooking ? (
-                                            <UserCheck className="h-5 w-5 text-blue-600" />
+                                            <UserCheck className="h-5 w-5 text-primary-600" />
                                         ) : isFull ? (
                                             <XCircle className="h-5 w-5" />
                                         ) : (
@@ -325,6 +339,14 @@ function CafeteriaBookingComponent() {
                                 </Card>
                             );
                         })}
+                    </div>
+                ) : (
+                     <div className="relative w-full h-[500px] rounded-lg border bg-muted/20">
+                        {cafeteria.layout.length > 0 ? (
+                           <p className="text-center text-muted-foreground absolute inset-0 flex items-center justify-center">Layout View coming soon.</p>
+                        ) : (
+                           <p className="text-center text-muted-foreground absolute inset-0 flex items-center justify-center">No layout defined for this cafeteria.</p>
+                        )}
                     </div>
                 )}
             </div>
@@ -376,5 +398,3 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
-
-    
