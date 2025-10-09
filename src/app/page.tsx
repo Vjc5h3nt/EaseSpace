@@ -165,7 +165,7 @@ export default function Home() {
       </main>
       <footer className="bg-background border-t">
         <div className="container mx-auto py-12 px-4 md:px-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
                      <h3 className="font-semibold text-foreground mb-4">EaseSpace</h3>
                      <p className="text-sm text-muted-foreground">&copy; 2024 EaseSpace Inc. <br/>All rights reserved.</p>
@@ -174,7 +174,6 @@ export default function Home() {
                     <h3 className="font-semibold text-foreground mb-4">Product</h3>
                     <nav className="flex flex-col gap-2">
                         <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Features</Link>
-                        <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Pricing</Link>
                          <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">Login</Link>
                     </nav>
                 </div>
@@ -183,14 +182,6 @@ export default function Home() {
                     <nav className="flex flex-col gap-2">
                         <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">About Us</Link>
                         <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Contact</Link>
-                        <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Careers</Link>
-                    </nav>
-                </div>
-                <div>
-                    <h3 className="font-semibold text-foreground mb-4">Legal</h3>
-                    <nav className="flex flex-col gap-2">
-                        <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Privacy Policy</Link>
-                        <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Terms of Service</Link>
                     </nav>
                 </div>
             </div>
