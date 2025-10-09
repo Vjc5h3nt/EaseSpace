@@ -100,12 +100,16 @@ export default function RequestDemoPage() {
       return;
     }
     try {
-      await addDoc(collection(db, "complaint_tickets"), {
+      const docRef = await addDoc(collection(db, "complaint_tickets"), {
         ...values,
         status: "Open",
         createdAt: serverTimestamp(),
       });
-      toast({ title: "Ticket Raised!", description: "Your issue has been submitted. We will get back to you soon." });
+      toast({ 
+          title: "Ticket Raised!", 
+          description: `Your issue has been submitted. Your ticket ID is: ${docRef.id}`,
+          duration: 7000 
+      });
       ticketForm.reset();
     } catch (error: any) {
       toast({ title: "Submission Failed", description: error.message, variant: "destructive" });
