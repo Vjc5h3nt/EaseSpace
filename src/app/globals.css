@@ -26,8 +26,8 @@ body {
     --muted: 240 5% 96%;
     --muted-foreground: 220 9% 46%; /* Gray */
 
-    --accent: 142 76% 36%; /* A contrasting vibrant green for success/availability */
-    --accent-foreground: 210 40% 98%;
+    --accent: 240 5% 90%; /* A neutral grey for hover effects */
+    --accent-foreground: 224 71% 4%; /* Dark Blue-Gray for text on accent */
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
