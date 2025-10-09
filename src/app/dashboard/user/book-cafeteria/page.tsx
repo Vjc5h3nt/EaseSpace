@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Suspense } from 'react';
@@ -9,15 +10,15 @@ import type { Cafeteria, TableLayout, Booking } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, ArrowLeft, Users, Clock, CheckCircle2, XCircle, MinusCircle, UserCheck } from "lucide-react";
+import { Calendar as CalendarIcon, ArrowLeft, Users, Clock, CheckCircle2, XCircle, UserCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, isToday, isBefore, startOfToday } from 'date-fns';
+import { format, isBefore, startOfToday } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 type BookingsForSlot = {
     [tableId: string]: {
@@ -215,14 +216,20 @@ function CafeteriaBookingComponent() {
     if (loading) return <div className="flex justify-center items-center h-full">Loading...</div>;
     if (!cafeteria) return <div className="flex justify-center items-center h-full">Could not load cafeteria.</div>;
 
+    const getTableCardColor = (availableSeats: number) => {
+        if (availableSeats === 0) return 'bg-red-50 text-red-700';
+        if (availableSeats <= 2) return 'bg-orange-50 text-orange-700';
+        return 'bg-green-50 text-green-700';
+    };
+
     return (
         <div className="p-4 sm:p-8 space-y-6">
-            <Button variant="ghost" onClick={() => router.back()} className="mb-2 pl-0">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Spaces
+            <Button variant="ghost" onClick={() => router.back()} className="mb-2 pl-0 text-base font-semibold">
+                <ArrowLeft className="mr-2 h-5 w-5" /> Back to Spaces
             </Button>
             <header className="mb-4">
                 <h1 className="text-3xl font-bold tracking-tight">{cafeteria.name}</h1>
-                <p className="text-muted-foreground mt-1">Select a date and time, then choose a table to book. You can book a maximum of 3 seats per slot.</p>
+                <p className="text-muted-foreground mt-1 text-base">Select a date and time, then choose a table to book. You can book a maximum of 3 seats per slot.</p>
             </header>
             
             <Card>
@@ -232,7 +239,7 @@ function CafeteriaBookingComponent() {
                             <Label className="text-sm font-medium">1. Select Date</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button variant={"outline"} className="w-full justify-start text-left font-normal">
+                                    <Button variant={"outline"} className="w-full justify-start text-left font-normal text-base h-11">
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {bookingDate ? format(bookingDate, "PPP") : <span>Pick a date</span>}
                                     </Button>
@@ -256,7 +263,7 @@ function CafeteriaBookingComponent() {
                                         key={slot}
                                         variant={timeSlot === slot ? "default" : "outline"}
                                         onClick={() => setTimeSlot(slot)}
-                                        className="flex-grow sm:flex-grow-0"
+                                        className="flex-grow sm:flex-grow-0 h-11 text-base"
                                      >
                                         <Clock className="mr-2 h-4 w-4" />
                                         {slot}
@@ -285,29 +292,33 @@ function CafeteriaBookingComponent() {
                             const isFull = availableSeats <= 0;
                             const userHasBooking = bookingInfo?.userHasBooking || false;
 
+                            const cardColorClass = getTableCardColor(availableSeats);
+
                             return (
                                 <Card 
                                     key={table.id}
                                     className={cn(
-                                        "transition-all hover:shadow-md",
-                                        isFull && !userHasBooking ? "bg-muted/50 cursor-not-allowed opacity-70" : "cursor-pointer",
-                                        userHasBooking && "border-primary ring-2 ring-primary"
+                                        "transition-all hover:shadow-lg",
+                                        isFull && !userHasBooking ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+                                        userHasBooking && "ring-2 ring-blue-500",
+                                        cardColorClass,
+                                        "border"
                                     )}
                                     onClick={() => !isFull && handleTableClick(table)}
                                 >
                                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                                         <CardTitle className="text-lg font-bold">Table {table.id.split('-')[1]}</CardTitle>
                                         {userHasBooking ? (
-                                            <UserCheck className="h-5 w-5 text-primary" />
+                                            <UserCheck className="h-5 w-5 text-blue-600" />
                                         ) : isFull ? (
-                                            <XCircle className="h-5 w-5 text-destructive" />
+                                            <XCircle className="h-5 w-5" />
                                         ) : (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                            <CheckCircle2 className="h-5 w-5" />
                                         )}
                                     </CardHeader>
                                     <CardContent>
                                         <div className="flex items-center text-sm font-medium">
-                                            <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                                            <Users className="mr-2 h-4 w-4" />
                                             {isFull && !userHasBooking ? "Fully Booked" : `${availableSeats} of 4 seats available`}
                                         </div>
                                     </CardContent>
@@ -365,3 +376,5 @@ export default function CafeteriaBookingPage() {
         </Suspense>
     )
 }
+
+    
